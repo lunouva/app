@@ -16,7 +16,6 @@ import React, { useEffect, useMemo, useState, createContext, useContext } from "
  * This file is a complete, runnable React single-file app for the canvas preview.
  */
 
-
 // ---------- constants ----------
 const WEEK_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
