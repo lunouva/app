@@ -20,10 +20,22 @@ import React, { useEffect, useMemo, useState, createContext, useContext } from "
 const WEEK_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ---------- date utils (safe) ----------
+// ---------- date utils (safe) ----------
 const safeDate = (v) => {
-  const d = v instanceof Date ? new Date(v) : new Date(String(v));
+  if (v instanceof Date) {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+  const s = String(v || "");
+  // If it's a plain YYYY-MM-DD string, parse as local (not UTC)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  const d = new Date(s);
   return isNaN(d.getTime()) ? new Date() : d;
 };
+
 const addDays = (d, n) => { const x = safeDate(d); const y = new Date(x); y.setDate(y.getDate()+n); return y; };
 const startOfWeek = (d, weekStartsOn = 1) => {
   const date = safeDate(d);
@@ -41,13 +53,6 @@ const fmtDateLabel = (d) => safeDate(d).toLocaleDateString([], { weekday: "short
 const uid = () => Math.random().toString(36).slice(2, 10);
 const today = () => new Date();
 
-const combineDayAndTime = (dayDate, hhmm) => {
-  const day = safeDate(dayDate);
-  const [h, m] = String(hhmm || "00:00").split(":").map((n) => Number(n) || 0);
-  const out = new Date(day);
-  out.setHours(h, m, 0, 0);
-  return out;
-};
 
 const minutes = (hhmm) => {
   const [h, m] = String(hhmm || "00:00").split(":").map((n) => Number(n) || 0);
