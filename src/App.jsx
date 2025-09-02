@@ -46,6 +46,13 @@ const startOfWeek = (d, weekStartsOn = 1) => {
   return date;
 };
 const fmtDate = (d) => safeDate(d).toISOString().slice(0, 10); // YYYY-MM-DD
+
+// NEW — local date (fixes shifts landing on wrong day)
+const pad2 = (n) => String(n).padStart(2, "0");
+const fmtDateLocal = (d) => {
+  const x = safeDate(d);
+  return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;
+};
 const fmtTime = (d) => safeDate(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const fmtDateLabel = (d) => safeDate(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" });
 
@@ -263,7 +270,17 @@ function AuthProvider({ children, data, setData }) {
 }
 
 // ---------- week grid ----------
-function WeekGrid({ employees, weekDays, shifts, positionsById, unavailability, timeOffList, showTimeOffChips, onCreate, onDelete }) {
+function WeekGrid({
+  employees,
+  weekDays,
+  shifts,
+  positionsById,
+  unavailability,
+  timeOffList,
+  showTimeOffChips,
+  onCreate,
+  onDelete,
+}) {
   const byUserUnav = useMemo(() => {
     const map = {};
     for (const u of employees) map[u.id] = [];
@@ -290,38 +307,80 @@ function WeekGrid({ employees, weekDays, shifts, positionsById, unavailability, 
               {fmtDateLabel(d)}
             </div>
           ))}
+
           {employees.map((emp) => (
             <React.Fragment key={emp.id}>
-              <div className="sticky left-0 z-10 border-t bg-white p-2 font-medium">{emp.full_name}</div>
+              <div className="sticky left-0 z-10 border-t bg-white p-2 font-medium">
+                {emp.full_name}
+              </div>
+
               {weekDays.map((day) => {
-                const dayShifts = shifts.filter((s) => s.user_id === emp.id && fmtDate(s.starts_at) === fmtDate(day));
-                const dayUnav = (byUserUnav[emp.id] || []).filter((ua) =>
-                  ua.kind === 'date' ? ua.date === fmtDate(day) : ua.weekday === day.getDay()
+                const dayKey = fmtDateLocal(day);
+
+                const dayShifts = shifts.filter(
+                  (s) => s.user_id === emp.id && fmtDateLocal(s.starts_at) === dayKey
                 );
-                const dayTimeOff = (byUserTimeOff[emp.id] || []).filter((r)=> isDateWithin(fmtDate(day), r.date_from, r.date_to));
+
+                const dayUnav = (byUserUnav[emp.id] || []).filter((ua) =>
+                  ua.kind === "date" ? ua.date === dayKey : ua.weekday === day.getDay()
+                );
+
+                const dayTimeOff = (byUserTimeOff[emp.id] || []).filter((r) =>
+                  isDateWithin(dayKey, r.date_from, r.date_to)
+                );
+
                 return (
-                  <div key={emp.id + fmtDate(day)} className="border-l border-t p-2 min-h-24">
+                  <div key={emp.id + dayKey} className="border-l border-t p-2 min-h-24">
                     <div className="space-y-2">
-                      {showTimeOffChips && dayTimeOff.map((r)=> (
-                        <div key={r.id} className={`rounded-xl border px-2 py-1 text-xs ${r.status==='approved' ? 'border-green-300 bg-green-50 text-green-700' : r.status==='pending' ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-300 bg-gray-50 text-gray-700'}`}>
-                          Time off {r.date_from}→{r.date_to} ({r.status}){r.notes ? ` • ${r.notes}`: ''}
-                        </div>
-                      ))}
+                      {showTimeOffChips &&
+                        dayTimeOff.map((r) => (
+                          <div
+                            key={r.id}
+                            className={`rounded-xl border px-2 py-1 text-xs ${
+                              r.status === "approved"
+                                ? "border-green-300 bg-green-50 text-green-700"
+                                : r.status === "pending"
+                                ? "border-amber-300 bg-amber-50 text-amber-700"
+                                : "border-gray-300 bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            Time off {r.date_from}→{r.date_to} ({r.status})
+                            {r.notes ? ` • ${r.notes}` : ""}
+                          </div>
+                        ))}
+
                       {dayUnav.map((ua) => (
-                        <div key={ua.id} className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
-                          Unavailable {ua.start_hhmm}–{ua.end_hhmm}{ua.notes ? ` • ${ua.notes}` : ''}
+                        <div
+                          key={ua.id}
+                          className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700"
+                        >
+                          Unavailable {ua.start_hhmm}–{ua.end_hhmm}
+                          {ua.notes ? ` • ${ua.notes}` : ""}
                         </div>
                       ))}
+
                       {dayShifts.map((s) => (
                         <div key={s.id} className="rounded-xl border px-2 py-1 text-sm shadow-sm">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium">{fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}</div>
-                            <button className="text-xs underline" onClick={() => onDelete(s.id)}>delete</button>
+                            <div className="font-medium">
+                              {fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}
+                            </div>
+                            <button className="text-xs underline" onClick={() => onDelete(s.id)}>
+                              delete
+                            </button>
                           </div>
-                          <div className="text-xs text-gray-600">{positionsById[s.position_id]?.name || "—"}</div>
+                          <div className="text-xs text-gray-600">
+                            {positionsById[s.position_id]?.name || "—"}
+                          </div>
                         </div>
                       ))}
-                      <button className="text-xs underline" onClick={() => onCreate(emp.id, day)}>+ add</button>
+
+                      <button
+                        className="text-xs underline"
+                        onClick={() => onCreate(emp.id, day)}
+                      >
+                        + add
+                      </button>
                     </div>
                   </div>
                 );
