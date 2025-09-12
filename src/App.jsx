@@ -466,6 +466,14 @@ export default function App() {
     ));
   };
 
+    // Auto-ensure schedule whenever week or location changes
+  useEffect(() => {
+    if (!schedule) {
+      ensureSchedule();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.id, weekStart, schedule]);
+
   const hasUnavailabilityConflict = (user_id, day, start_hhmm, end_hhmm) => {
     const aStart = minutes(start_hhmm);
     const aEnd = minutes(end_hhmm);
@@ -791,7 +799,6 @@ function InnerApp(props) {
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <button className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={() => ensureSchedule()}>Ensure Week</button>
             <button disabled={!schedule} className={`rounded-xl border px-3 py-2 text-sm shadow-sm ${schedule?.status === "published" ? "bg-green-50" : ""}`} onClick={publish}>{schedule?.status === "published" ? "Unpublish" : "Publish"}</button>
             <button disabled={!schedule} className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={copyCsv}>Copy CSV</button>
             <button disabled={!schedule} className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={exportCsv}>Download CSV</button>
@@ -949,7 +956,7 @@ function InnerApp(props) {
               <div className="font-semibold">How to use</div>
               <ol className="ml-4 list-decimal pl-2">
                 <li>Add employees & positions.</li>
-                <li>Pick a week (uses your setting) then <b>Ensure Week</b>.</li>
+<li>Pick a week (uses your setting). A schedule is created automatically if missing.</li>
                 <li>Create shifts via <b>+ add</b> in each employee/day cell.</li>
                 <li>Use <b>Tasks</b> & <b>Feed</b> for daily ops.</li>
                 <li>Export via <b>Copy</b> or <b>Download CSV</b>.</li>
