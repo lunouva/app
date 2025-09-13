@@ -466,13 +466,13 @@ export default function App() {
     ));
   };
 
-    // Auto-ensure schedule whenever week or location changes
+  // Auto-ensure schedule whenever week or location changes
   useEffect(() => {
     if (!schedule) {
       ensureSchedule();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.id, weekStart, schedule]);
+  }, [location.id, weekStart]);
 
   const hasUnavailabilityConflict = (user_id, day, start_hhmm, end_hhmm) => {
     const aStart = minutes(start_hhmm);
