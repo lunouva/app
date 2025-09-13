@@ -20,7 +20,6 @@ import React, { useEffect, useMemo, useState, createContext, useContext } from "
 const WEEK_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ---------- date utils (safe) ----------
-// ---------- date utils (safe) ----------
 const safeDate = (v) => {
   if (v instanceof Date) {
     const d = new Date(v);
@@ -36,7 +35,8 @@ const safeDate = (v) => {
   return isNaN(d.getTime()) ? new Date() : d;
 };
 
-const addDays = (d, n) => { const x = safeDate(d); const y = new Date(x); y.setDate(y.getDate()+n); return y; };
+const addDays = (d, n) => { const x = safeDate(d); const y = new Date(x); y.setDate(y.getDate() + n); return y; };
+
 const startOfWeek = (d, weekStartsOn = 1) => {
   const date = safeDate(d);
   const day = date.getDay();
@@ -45,13 +45,16 @@ const startOfWeek = (d, weekStartsOn = 1) => {
   date.setHours(0, 0, 0, 0);
   return date;
 };
-const fmtDate = (d) => safeDate(d).toISOString().slice(0, 10); // YYYY-MM-DD
 
-// NEW — local date (fixes shifts landing on wrong day)
-const pad2 = (n) => String(n).padStart(2, "0");
-const fmtDateLocal = (d) => {
-  const x = safeDate(d);
-  return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;
+const fmtDate = (d) => safeDate(d).toISOString().slice(0, 10); // YYYY-MM-DD (UTC-based)
+
+// Local YYYY-MM-DD (no UTC shift)
+const fmtDateLocal = (v) => {
+  const d = safeDate(v);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 const fmtTime = (d) => safeDate(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const fmtDateLabel = (d) => safeDate(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" });
