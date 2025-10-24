@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
 
+
+const PrintCSS = () => (
+  <style>{` ... `}</style>
+);
+
+
 /**
  * ShiftMate – safe build + updates per new spec
  * - Prev/Next week controls (respect custom work-week start)
@@ -701,6 +707,7 @@ function InnerApp(props) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
+      <PrintCSS />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="grid place-items-center rounded-2xl border bg-white p-2 shadow-sm">
