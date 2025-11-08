@@ -75,6 +75,15 @@ const minutes = (hhmm) => {
   return h * 60 + m;
 };
 
+// Combine a calendar day (Date or YYYY-MM-DD) with an HH:MM time into a local Date
+const combineDayAndTime = (day, hhmm) => {
+  const base = safeDate(day);
+  const [h, m] = String(hhmm || "00:00").split(":").map((n) => Number(n) || 0);
+  const d = new Date(base);
+  d.setHours(h, m, 0, 0);
+  return d;
+};
+
 const rangesOverlap = (aStart, aEnd, bStart, bEnd) => Math.max(aStart, bStart) < Math.min(aEnd, bEnd);
 
 const hoursBetween = (a, b, breakMin = 0) => Math.max(0, (safeDate(b) - safeDate(a) - (Number(breakMin) || 0) * 60000) / 3600000);
@@ -516,6 +525,9 @@ export default function App() {
   const currentUserId = auth?.currentUser?.id || null;
 
   const createShift = ({ user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes, quickTaskTitle, quickTaskTemplateId }) => {
+    // Basic time validation
+    const startM = minutes(start_hhmm), endM = minutes(end_hhmm);
+    if (!(endM > startM)) { alert('End time must be after start time.'); return; }
     // Unavailability override with confirm
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
