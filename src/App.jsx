@@ -111,6 +111,10 @@ const defaultFlags = () => ({
   employeesCanPostToFeed: false,
   tasksEnabled: true,
   messagesEnabled: true,
+  // Swap Shifts feature flags
+  requireManagerApproval: true,
+  swapCutoffHours: 12,
+  allowCrossPosition: false,
   weekStartsOn: 1, // 0=Sun ... 6=Sat
 });
 
@@ -129,6 +133,10 @@ const seedData = () => ({
     { id: uid(), location_id: "loc1", full_name: "Riley Brooks", email: "riley@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "they/them", emergency_contact: { name: "K. Brooks", phone: "555-0104" }, attachments: [], notes: "" },
   ],
   schedules: [],
+  // Swap Shifts data (in-app demo storage)
+  swap_requests: [], // {id, shift_id, requester_id, type:'give'|'trade', status, message, created_at, expires_at}
+  swap_offers: [],   // {id, request_id, offerer_id, offer_shift_id|null, status, created_at}
+  swap_audit_logs: [], // {id, swap_id, kind:'request'|'offer', actor_id, action, meta, created_at}
   time_off_requests: [],
   unavailability: [], // {id, user_id, kind:'weekly'|'date', weekday?, date?, start_hhmm, end_hhmm, notes}
   news_posts: [], // {id, user_id, body, created_at}
@@ -150,6 +158,13 @@ const loadData = () => {
     if (!parsed.messages) parsed.messages = [];
     if (!parsed.feature_flags) parsed.feature_flags = defaultFlags();
     if (parsed.feature_flags.weekStartsOn == null) parsed.feature_flags.weekStartsOn = 1;
+    // backfill swap fields and flags
+    if (!parsed.swap_requests) parsed.swap_requests = [];
+    if (!parsed.swap_offers) parsed.swap_offers = [];
+    if (!parsed.swap_audit_logs) parsed.swap_audit_logs = [];
+    if (parsed.feature_flags.requireManagerApproval == null) parsed.feature_flags.requireManagerApproval = true;
+    if (parsed.feature_flags.swapCutoffHours == null) parsed.feature_flags.swapCutoffHours = 12;
+    if (parsed.feature_flags.allowCrossPosition == null) parsed.feature_flags.allowCrossPosition = false;
     // backfill user extra fields
     parsed.users = (parsed.users || []).map(u => ({
       phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "", ...u,
@@ -717,6 +732,189 @@ function InnerApp(props) {
 
   const shiftWeek = (delta) => setWeekStart((s) => fmtDate(startOfWeek(addDays(s, delta * 7), flags.weekStartsOn)));
 
+  // ----- Swap Shifts: helpers, state, actions -----
+  const activeSwapStatuses = new Set(['open','offered','manager_pending']);
+  const nowIso = () => new Date().toISOString();
+
+  const [swapModal, setSwapModal] = useState({ open: false, shiftId: null });
+  const [offerModal, setOfferModal] = useState({ open: false, requestId: null });
+
+  const allShifts = useMemo(() => (data.schedules || []).flatMap(s => (s.shifts || []).map(sh => ({...sh, __schedule_id: s.id, __location_id: s.location_id }))), [data.schedules]);
+  const findShiftById = (shiftId) => allShifts.find(s => s.id === shiftId) || null;
+  const userFutureShifts = (userId) => allShifts.filter(s => s.user_id === userId && safeDate(s.starts_at) > new Date());
+  const isWithinCutoff = (shift) => {
+    const cutoffH = Number(flags.swapCutoffHours || 0);
+    const diffH = (safeDate(shift.starts_at) - new Date()) / 3600000;
+    return diffH >= cutoffH;
+  };
+  const overlapsAny = (userId, starts_at, ends_at, excludeShiftIds = []) => {
+    const a = safeDate(starts_at).getTime();
+    const b = safeDate(ends_at).getTime();
+    for (const sh of allShifts) {
+      if (sh.user_id !== userId) continue;
+      if (excludeShiftIds.includes(sh.id)) continue;
+      const x = safeDate(sh.starts_at).getTime();
+      const y = safeDate(sh.ends_at).getTime();
+      if (Math.max(a, x) < Math.min(b, y)) return true;
+    }
+    return false;
+  };
+  const positionMatchesOrAllowed = (posA, posB) => flags.allowCrossPosition || posA === posB;
+
+  const addAudit = (swap_id, kind, actor_id, action, meta = {}) => {
+    const row = { id: uid(), swap_id, kind, actor_id, action, meta, created_at: nowIso() };
+    setData((d) => ({ ...d, swap_audit_logs: [...d.swap_audit_logs, row] }));
+  };
+
+  const expireSwaps = () => {
+    const now = new Date();
+    setData((d) => ({
+      ...d,
+      swap_requests: d.swap_requests.map(r => {
+        if ((r.status === 'open' || r.status === 'offered') && r.expires_at && safeDate(r.expires_at) <= now) {
+          addAudit(r.id, 'request', currentUser.id, 'expire', { reason: 'expires_at passed' });
+          return { ...r, status: 'expired' };
+        }
+        return r;
+      })
+    }));
+  };
+
+  useEffect(() => {
+    expireSwaps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const createSwapRequest = ({ shiftId, type, message, expiresAt }) => {
+    const shift = findShiftById(shiftId);
+    if (!shift) return alert('Shift not found');
+    if (shift.user_id !== currentUser.id) return alert('You can only request a swap for your own shift');
+    if (!isWithinCutoff(shift)) return alert(`Swaps must be requested ${flags.swapCutoffHours}h before start`);
+    // One active swap per shift
+    const hasActive = (data.swap_requests || []).some(r => r.shift_id === shiftId && activeSwapStatuses.has(r.status));
+    if (hasActive) return alert('This shift already has an active swap request');
+    const req = { id: uid(), shift_id: shiftId, requester_id: currentUser.id, type, status: 'open', message: message || '', created_at: nowIso(), expires_at: expiresAt || null };
+    setData((d) => ({ ...d, swap_requests: [req, ...d.swap_requests] }));
+    addAudit(req.id, 'request', currentUser.id, 'create', { type, message });
+    setSwapModal({ open: false, shiftId: null });
+  };
+
+  const cancelSwapRequest = (requestId) => {
+    const req = (data.swap_requests || []).find(r => r.id === requestId);
+    if (!req) return;
+    if (req.requester_id !== currentUser.id) return alert('Only the requester can cancel');
+    if (!activeSwapStatuses.has(req.status)) return alert('Request is no longer active');
+    setData((d) => ({ ...d, swap_requests: d.swap_requests.map(r => r.id===requestId ? { ...r, status: 'canceled' } : r) }));
+    addAudit(req.id, 'request', currentUser.id, 'cancel', {});
+  };
+
+  const createSwapOffer = ({ requestId, offerShiftId = null }) => {
+    const req = (data.swap_requests || []).find(r => r.id === requestId);
+    if (!req) return alert('Request not found');
+    if (!activeSwapStatuses.has(req.status)) return alert('Request is not open');
+    const shift = findShiftById(req.shift_id);
+    if (!shift) return alert('Base shift not found');
+    if (currentUser.id === req.requester_id) return alert('You cannot offer on your own request');
+    // eligibility checks
+    if (!isWithinCutoff(shift)) return alert('Shift is within cutoff');
+    if (!positionMatchesOrAllowed(shift.position_id, offerShiftId ? (findShiftById(offerShiftId)?.position_id) : shift.position_id)) return alert('Position mismatch (cross-train disabled)');
+    // cover only must not overlap
+    if (!offerShiftId && overlapsAny(currentUser.id, shift.starts_at, shift.ends_at, [])) return alert('Offer would overlap your existing shift');
+    // trade: must provide offerShiftId
+    if (req.type === 'trade') {
+      if (!offerShiftId) return alert('Choose one of your shifts to trade');
+      const myShift = findShiftById(offerShiftId);
+      if (!myShift || myShift.user_id !== currentUser.id) return alert('Invalid trade shift');
+      // After trade, neither employee should overlap
+      const wouldRequesterOverlap = overlapsAny(req.requester_id, myShift.starts_at, myShift.ends_at, [req.shift_id]);
+      const wouldOffererOverlap = overlapsAny(currentUser.id, shift.starts_at, shift.ends_at, [offerShiftId]);
+      if (wouldRequesterOverlap || wouldOffererOverlap) return alert('Trade would create an overlap');
+    }
+    const offer = { id: uid(), request_id: requestId, offerer_id: currentUser.id, offer_shift_id: offerShiftId || null, status: 'proposed', created_at: nowIso() };
+    setData((d) => ({ ...d, swap_offers: [offer, ...d.swap_offers], swap_requests: d.swap_requests.map(r => r.id===requestId ? { ...r, status: 'offered' } : r) }));
+    addAudit(offer.id, 'offer', currentUser.id, 'offer', { offer_shift_id: offerShiftId });
+    setOfferModal({ open: false, requestId: null });
+  };
+
+  const withdrawOffer = (offerId) => {
+    const offer = (data.swap_offers||[]).find(o => o.id === offerId);
+    if (!offer) return;
+    if (offer.offerer_id !== currentUser.id) return alert('Only the offerer can withdraw');
+    setData((d) => ({ ...d, swap_offers: d.swap_offers.map(o => o.id===offerId ? { ...o, status: 'withdrawn' } : o) }));
+    addAudit(offer.id, 'offer', currentUser.id, 'withdraw', {});
+  };
+
+  const applySwap = (requestId, offerId) => {
+    const req = (data.swap_requests || []).find(r => r.id === requestId);
+    const offer = (data.swap_offers || []).find(o => o.id === offerId);
+    if (!req || !offer) return alert('Missing items');
+    const base = findShiftById(req.shift_id);
+    if (!base) return alert('Base shift missing');
+    // perform atomic adjustment in a single setData
+    setData((d) => {
+      const schedules = d.schedules.map(s => ({...s, shifts: [...s.shifts]}));
+      const findMut = (sid) => {
+        for (const s of schedules) {
+          const i = s.shifts.findIndex(x => x.id===sid);
+          if (i>=0) return { s, i };
+        }
+        return null;
+      };
+      const baseRef = findMut(req.shift_id);
+      if (!baseRef) return d;
+      if (req.type === 'give') {
+        baseRef.s.shifts[baseRef.i] = { ...baseRef.s.shifts[baseRef.i], user_id: offer.offerer_id };
+      } else {
+        const otherRef = findMut(offer.offer_shift_id);
+        if (!otherRef) return d;
+        const a = baseRef.s.shifts[baseRef.i];
+        const b = otherRef.s.shifts[otherRef.i];
+        baseRef.s.shifts[baseRef.i] = { ...a, user_id: b.user_id };
+        otherRef.s.shifts[otherRef.i] = { ...b, user_id: a.user_id };
+      }
+      return {
+        ...d,
+        schedules,
+        swap_requests: d.swap_requests.map(r => r.id===requestId ? { ...r, status: 'approved' } : r),
+        swap_offers: d.swap_offers.map(o => o.id===offerId ? { ...o, status: 'accepted' } : o)
+      };
+    });
+    addAudit(requestId, 'request', currentUser.id, 'apply', { offer_id: offerId });
+  };
+
+  const acceptOffer = (offerId) => {
+    const offer = (data.swap_offers||[]).find(o => o.id===offerId);
+    if (!offer) return;
+    const req = (data.swap_requests||[]).find(r => r.id===offer.request_id);
+    if (!req) return;
+    if (req.requester_id !== currentUser.id) return alert('Only the requester can accept');
+    if (flags.requireManagerApproval) {
+      setData((d)=> ({ ...d, swap_requests: d.swap_requests.map(r => r.id===req.id ? { ...r, status: 'manager_pending' } : r) }));
+      addAudit(req.id, 'request', currentUser.id, 'accept', { offer_id: offerId, manager_pending: true });
+    } else {
+      addAudit(req.id, 'request', currentUser.id, 'accept', { offer_id: offerId, manager_pending: false });
+      applySwap(req.id, offerId);
+    }
+  };
+
+  const approveSwapRequest = (requestId) => {
+    const req = (data.swap_requests||[]).find(r => r.id===requestId);
+    if (!req) return;
+    // pick first accepted or proposed offer? In manager_pending flow: requester accepted one; find that offer_id from audit trail.
+    const accepted = (data.swap_offers||[]).find(o => o.request_id===requestId && o.status==='proposed');
+    // If requester accepted, they didn't change offer status; rely on latest offer by actor.
+    const lastAcceptedAudit = [...data.swap_audit_logs].reverse().find(a => a.kind==='request' && a.swap_id===requestId && a.action==='accept');
+    const offerId = lastAcceptedAudit?.meta?.offer_id || accepted?.id;
+    if (!offerId) return alert('No offer to approve');
+    addAudit(requestId, 'request', currentUser.id, 'approve', { offer_id: offerId });
+    applySwap(requestId, offerId);
+  };
+
+  const declineSwapRequest = (requestId) => {
+    setData((d)=> ({ ...d, swap_requests: d.swap_requests.map(r => r.id===requestId ? { ...r, status: 'declined' } : r) }));
+    addAudit(requestId, 'request', currentUser.id, 'decline', {});
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
       <PrintCSS />
@@ -767,6 +965,7 @@ function InnerApp(props) {
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
           {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
           {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
+          <TabBtn id="requests" tab={tab} setTab={setTab} label="Requests" />
         </>)}
       </nav>
 
@@ -911,6 +1110,38 @@ function InnerApp(props) {
         </Section>
       )}
 
+      {isManager && tab === "requests" && (
+        <Section title="Swap requests (queue)">
+          <SwapQueuePanel
+            requests={data.swap_requests}
+            offers={data.swap_offers}
+            users={users}
+            findShiftById={(id)=> (data.schedules||[]).flatMap(s=> (s.shifts||[]).map(sh=> ({...sh, __location_id: s.location_id}))).find(x=>x.id===id)}
+            onApprove={approveSwapRequest}
+            onDecline={declineSwapRequest}
+          />
+        </Section>
+      )}
+
+      {!isManager && tab === "requests" && (
+        <Section title="Swap Center">
+          <EmployeeSwapsPanel
+            data={data}
+            users={users}
+            currentUser={currentUser}
+            positionsById={positionsById}
+            findShiftById={(id)=> (data.schedules||[]).flatMap(s=> (s.shifts||[]).map(sh=> ({...sh, __location_id: s.location_id}))).find(x=>x.id===id)}
+            onCreateRequest={(payload)=> createSwapRequest(payload)}
+            onOfferCover={(requestId)=> createSwapOffer({ requestId, offerShiftId: null })}
+            onOfferTrade={(requestId, offerShiftId)=> createSwapOffer({ requestId, offerShiftId })}
+            onWithdrawOffer={withdrawOffer}
+            onAcceptOffer={acceptOffer}
+            onCancelRequest={cancelSwapRequest}
+            flags={flags}
+          />
+        </Section>
+      )}
+
       {!isManager && tab === "my" && (
         <Section
           title={`My week • ${safeDate(weekStart).toLocaleDateString()}`}
@@ -944,6 +1175,13 @@ function InnerApp(props) {
                 <Checkbox label="Employees can post to feed" checked={flags.employeesCanPostToFeed} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, employeesCanPostToFeed: v }}))}/>
                 <Checkbox label="Tasks" checked={flags.tasksEnabled} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, tasksEnabled: v }}))}/>
                 <Checkbox label="Messages" checked={flags.messagesEnabled} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, messagesEnabled: v }}))}/>
+                <Checkbox label="Swap requires manager approval" checked={flags.requireManagerApproval} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, requireManagerApproval: v }}))} />
+                <label className="grid gap-1 text-sm">
+                  <span className="text-gray-600">Swap cutoff hours</span>
+                  <input type="number" min="0" className="rounded-xl border px-3 py-2" value={flags.swapCutoffHours}
+                    onChange={(e)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, swapCutoffHours: Number(e.target.value||0) }}))} />
+                </label>
+                <Checkbox label="Allow cross-position swaps" checked={flags.allowCrossPosition} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, allowCrossPosition: v }}))}/>
                 <Select label="Work week starts on" value={flags.weekStartsOn} onChange={(v)=>{ const n = Number(v); setData(d=> ({...d, feature_flags: { ...d.feature_flags, weekStartsOn: n }})); setWeekStart(s=> fmtDate(startOfWeek(s, n))); }} options={WEEK_LABELS.map((w,i)=>({value:i,label:w}))} />
               </div>
             </div>
@@ -1598,6 +1836,192 @@ function RequestsPanel({ users, list, onSetStatus }) {
   );
 }
 
+// ---------- Swaps UI Components ----------
+function SwapQueuePanel({ requests, offers, users, findShiftById, onApprove, onDecline }) {
+  const byId = useMemo(()=> Object.fromEntries(users.map(u=>[u.id,u])), [users]);
+  const pending = (requests||[]).filter(r => r.status==='manager_pending');
+  const offersByReq = useMemo(()=> {
+    const m = {};
+    for (const o of (offers||[])) { if (!m[o.request_id]) m[o.request_id]=[]; m[o.request_id].push(o); }
+    return m;
+  }, [offers]);
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="mb-2 font-semibold">Manager approval queue</div>
+        <ul className="divide-y rounded-2xl border">
+          {pending.length===0 && <li className="p-3 text-sm text-gray-600">No items in queue.</li>}
+          {pending.map(r => {
+            const sh = findShiftById(r.shift_id);
+            const u = byId[r.requester_id];
+            const count = (offersByReq[r.id]||[]).length;
+            return (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                <div>
+                  <div className="font-medium">{u?.full_name || 'Unknown'} <span className="ml-2 text-gray-600">{r.type}</span></div>
+                  {sh && (
+                    <div className="text-gray-600">{new Date(sh.starts_at).toLocaleString()} - {new Date(sh.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Pill>offers: {count}</Pill>
+                  <button className="rounded-xl border px-2 py-1" onClick={()=> onApprove(r.id)}>Approve</button>
+                  <button className="rounded-xl border px-2 py-1" onClick={()=> onDecline(r.id)}>Decline</button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShiftById, onCreateRequest, onOfferCover, onOfferTrade, onWithdrawOffer, onAcceptOffer, onCancelRequest, flags }) {
+  const myId = currentUser.id;
+  const allShifts = (data.schedules||[]).flatMap(s => (s.shifts||[]).map(sh => ({...sh, __location_id: s.location_id })));
+  const myFutureShifts = allShifts.filter(s => s.user_id===myId && safeDate(s.starts_at) > new Date());
+  const openRequests = (data.swap_requests||[]).filter(r => (r.status==='open' || r.status==='offered') && r.requester_id!==myId);
+  const myRequests = (data.swap_requests||[]).filter(r => r.requester_id===myId);
+  const myOffers = (data.swap_offers||[]).filter(o => o.offerer_id===myId);
+  const offersByReq = useMemo(()=> {
+    const m = {}; for (const o of (data.swap_offers||[])) { if (!m[o.request_id]) m[o.request_id]=[]; m[o.request_id].push(o); } return m; }, [data.swap_offers]);
+
+  const [formShiftId, setFormShiftId] = useState(myFutureShifts[0]?.id || '');
+  const [formType, setFormType] = useState('give');
+  const [formMsg, setFormMsg] = useState('');
+  const [formExpireH, setFormExpireH] = useState('');
+
+  const submit = () => {
+    if (!formShiftId) return alert('Pick a shift');
+    const expiresAt = formExpireH ? new Date(Date.now() + Number(formExpireH)*3600000).toISOString() : null;
+    onCreateRequest({ shiftId: formShiftId, type: formType, message: formMsg, expiresAt });
+    setFormMsg(''); setFormExpireH('');
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="mb-2 font-semibold">Create swap request</div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="grid gap-1 text-sm">
+            <span className="text-gray-600">My future shift</span>
+            <select className="rounded-xl border px-3 py-2" value={formShiftId} onChange={(e)=> setFormShiftId(e.target.value)}>
+              {myFutureShifts.map(s => (
+                <option key={s.id} value={s.id}>{new Date(s.starts_at).toLocaleDateString()} {new Date(s.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} ({positionsById[s.position_id]?.name||'-'})</option>
+              ))}
+            </select>
+          </label>
+          <Select label="Type" value={formType} onChange={setFormType} options={[{value:'give',label:'Give away'},{value:'trade',label:'Trade'}]} />
+          <label className="grid gap-1 text-sm">
+            <span className="text-gray-600">Expires in (hours)</span>
+            <input className="rounded-xl border px-3 py-2" type="number" min="0" value={formExpireH} onChange={(e)=> setFormExpireH(e.target.value)} />
+          </label>
+          <div className="md:col-span-3">
+            <TextInput label="Message (optional)" value={formMsg} onChange={setFormMsg} />
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button className="rounded-xl border px-3 py-2 text-sm" onClick={submit}>Request swap</button>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 font-semibold">Open requests (eligible)</div>
+        <ul className="divide-y rounded-2xl border">
+          {openRequests.length===0 && <li className="p-3 text-sm text-gray-600">No open requests right now.</li>}
+          {openRequests.map(r => {
+            const sh = findShiftById(r.shift_id);
+            const requester = users.find(u=>u.id===r.requester_id);
+            if (!sh) return null;
+            const mineSameLoc = sh.__location_id === currentUser.location_id;
+            if (!mineSameLoc) return null;
+            const myEligibleShifts = myFutureShifts.filter(ms => flags.allowCrossPosition || ms.position_id === sh.position_id);
+            return (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                <div>
+                  <div className="font-medium">{requester?.full_name || 'Unknown'} <span className="ml-2 text-gray-600">{r.type}</span></div>
+                  <div className="text-gray-600">{new Date(sh.starts_at).toLocaleString()} - {new Date(sh.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {r.type==='give' ? (
+                    <button className="rounded-xl border px-2 py-1" onClick={()=> onOfferCover(r.id)}>Offer to cover</button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <select className="rounded-xl border px-2 py-1" onChange={(e)=> { if(e.target.value) onOfferTrade(r.id, e.target.value); }} defaultValue="">
+                        <option value="" disabled>Offer trade shift</option>
+                        {myEligibleShifts.map(ms => (
+                          <option key={ms.id} value={ms.id}>{new Date(ms.starts_at).toLocaleDateString()} {new Date(ms.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <div className="mb-2 font-semibold">My requests</div>
+        <ul className="divide-y rounded-2xl border">
+          {myRequests.length===0 && <li className="p-3 text-sm text-gray-600">No swap requests yet.</li>}
+          {myRequests.map(r => {
+            const sh = findShiftById(r.shift_id);
+            const listOffers = offersByReq[r.id] || [];
+            return (
+              <li key={r.id} className="p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{r.type} <span className="ml-2 text-gray-600">{r.status}</span></div>
+                    {sh && <div className="text-gray-600">{new Date(sh.starts_at).toLocaleString()}</div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(r.status==='open' || r.status==='offered') && (<button className="rounded-xl border px-2 py-1" onClick={()=> onCancelRequest(r.id)}>Cancel</button>)}
+                  </div>
+                </div>
+                {listOffers.length>0 && (
+                  <div className="mt-2 rounded-xl border p-2">
+                    <div className="mb-1 text-xs font-semibold">Offers</div>
+                    <ul className="space-y-1 text-xs">
+                      {listOffers.map(o => (
+                        <li key={o.id} className="flex items-center justify-between">
+                          <span>From {users.find(u=>u.id===o.offerer_id)?.full_name || 'Unknown'}{o.offer_shift_id ? ' (trade)' : ' (cover)'}
+                          </span>
+                          {r.status!=='manager_pending' && (
+                            <button className="rounded-xl border px-2 py-0.5" onClick={()=> onAcceptOffer(o.id)}>Accept</button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <div className="mb-2 font-semibold">My offers</div>
+        <ul className="divide-y rounded-2xl border">
+          {myOffers.length===0 && <li className="p-3 text-sm text-gray-600">No offers yet.</li>}
+          {myOffers.map(o => (
+            <li key={o.id} className="flex items-center justify-between p-3 text-sm">
+              <div>
+                <div className="font-medium">{o.offer_shift_id ? 'Trade' : 'Cover'} offer <span className="ml-2 text-gray-600">{o.status}</span></div>
+                <div className="text-gray-600">For request {o.request_id.slice(0,6)}</div>
+              </div>
+              {o.status==='proposed' && <button className="rounded-xl border px-2 py-1" onClick={()=> onWithdrawOffer(o.id)}>Withdraw</button>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Self Tests ----------
 function runSelfTests() {
   const tests = [];
@@ -1630,6 +2054,7 @@ function runSelfTests() {
   t('WEEK_LABELS has 7 days', () => WEEK_LABELS.length === 7);
   t('fmtDate preserves day', () => fmtDate(combineDayAndTime('2025-01-02', '09:30')) === '2025-01-02');
   t('feature flags include employeesCanPostToFeed', () => defaultFlags().hasOwnProperty('employeesCanPostToFeed'));
+  t('swap flags exist in defaults', () => defaultFlags().hasOwnProperty('requireManagerApproval') && defaultFlags().hasOwnProperty('swapCutoffHours') && defaultFlags().hasOwnProperty('allowCrossPosition'));
   // template test
   t('template add => task title copy', () => { const title='Sweep'; const tmp={ id:'t1', title }; return tmp.title==='Sweep'; });
   // time off overlap
