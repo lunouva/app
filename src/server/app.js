@@ -4,6 +4,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const swaps = require('./routes/swaps');
+const timeoff = require('./routes/timeoff');
+const availability = require('./routes/availability');
+const schedule = require('./routes/schedule');
 
 const app = express();
 app.use(bodyParser.json());
@@ -12,8 +15,10 @@ app.use(bodyParser.json());
 // app.use(authMiddleware)
 
 app.use('/api/swaps', swaps);
+app.use('/api', timeoff);
+app.use('/api', availability);
+app.use('/api', schedule);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 module.exports = app;
-

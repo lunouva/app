@@ -723,8 +723,20 @@ function InnerApp(props) {
     addPost, addTask, setTaskStatus, deleteTask, addTemplate, deleteTemplate, sendMessage,
   } = props;
   const { currentUser, logout } = useAuth();
+  // Schedule view toggle (persisted): 'my' or 'full'
+  const SCHEDULE_VIEW_KEY = 'shiftmate_schedule_view';
+  const [scheduleView, setScheduleView] = useState(() => localStorage.getItem(SCHEDULE_VIEW_KEY) || 'my');
+  useEffect(() => { try { localStorage.setItem(SCHEDULE_VIEW_KEY, scheduleView); } catch {} }, [scheduleView]);
+  // Requests sub-tab state
+  const [requestsSubTab, setRequestsSubTab] = useState('timeoff');
+  // Set default after login if not previously set
+  useEffect(() => {
+    if (!currentUser) return;
+    const existing = localStorage.getItem(SCHEDULE_VIEW_KEY);
+    if (!existing) setScheduleView(currentUser.role !== 'employee' ? 'full' : 'my');
+  }, [currentUser]);
 
-  if (!currentUser) return <LoginPage onAfterLogin={(u) => setTab(u.role === "employee" ? "my" : "schedule")} />;
+  if (!currentUser) return <LoginPage onAfterLogin={() => setTab("schedule")} />;
 
   const flags = data.feature_flags || defaultFlags();
   const isManager = currentUser.role !== "employee";
@@ -953,19 +965,20 @@ function InnerApp(props) {
         {isManager && (<>
           <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" />
           <TabBtn id="employees" tab={tab} setTab={setTab} label="Employees" />
-          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Unavailability" />}
+          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
           {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
           {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label="Requests" />
+          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.status==='pending').length + (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length})`} />
           <TabBtn id="settings" tab={tab} setTab={setTab} label="Settings" />
         </>)}
         {!isManager && (<>
-          <TabBtn id="my" tab={tab} setTab={setTab} label="My" />
+          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" />
+          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
           {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
           {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label="Requests" />
+          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} />
         </>)}
       </nav>
 
@@ -1025,22 +1038,7 @@ function InnerApp(props) {
             <button disabled={!schedule} className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={exportCsv}>Download CSV</button>
             <button className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={resetDemo}>Reset Demo</button>
           </div>
-
-          {/* Manager quick inputs below schedule */}
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border p-3">
-              <h4 className="mb-2 font-semibold">Quick: Add time off</h4>
-              <ManagerQuickTimeOff users={scopedUsers} onSubmit={createTimeOff} />
-              <div className="mt-2 text-xs text-gray-600">Full lists & approvals in the <b>Requests</b> tab.</div>
-            </div>
-            {flags.unavailabilityEnabled && (
-              <div className="rounded-2xl border p-3">
-                <h4 className="mb-2 font-semibold">Quick: Add weekly unavailability</h4>
-                <ManagerQuickUnavailability users={scopedUsers} onSubmit={addUnavailability} />
-                <div className="mt-2 text-xs text-gray-600">View & edit all in the <b>Unavailability</b> tab.</div>
-              </div>
-            )}
-          </div>
+          {/* Quick inputs removed per UX: keep grid focused on shifts */}
         </Section>
       )}
 
@@ -1075,7 +1073,7 @@ function InnerApp(props) {
       )}
 
       {isManager && flags.unavailabilityEnabled && tab === "availability" && (
-        <Section title="Unavailability (all employees)">
+        <Section title="Availability (all employees)">
           <UnavailabilityAdmin
             users={users}
             list={unavailability}
@@ -1083,6 +1081,12 @@ function InnerApp(props) {
             onUpdate={updateUnavailability}
             onDelete={deleteUnavailability}
           />
+        </Section>
+      )}
+
+      {!isManager && flags.unavailabilityEnabled && tab === "availability" && (
+        <Section title="My Availability">
+          <EmployeeAvailabilityView currentUser={currentUser} list={unavailability} />
         </Section>
       )}
 
@@ -1104,13 +1108,13 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {isManager && tab === "requests" && (
+      {isManager && tab === "requests-old" && (
         <Section title="Time‑off requests">
           <RequestsPanel users={users} list={data.time_off_requests} onSetStatus={setTimeOffStatus} />
         </Section>
       )}
 
-      {isManager && tab === "requests" && (
+      {isManager && tab === "requests-old" && (
         <Section title="Swap requests (queue)">
           <SwapQueuePanel
             requests={data.swap_requests}
@@ -1123,7 +1127,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {!isManager && tab === "requests" && (
+      {!isManager && tab === "requests-old" && (
         <Section title="Swap Center">
           <EmployeeSwapsPanel
             data={data}
@@ -1142,23 +1146,89 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {!isManager && tab === "my" && (
+      {!isManager && tab === "schedule" && (
         <Section
-          title={`My week • ${safeDate(weekStart).toLocaleDateString()}`}
-          right={<Pill tone={schedule?.status === "published" ? "success" : "warn"}>{schedule ? schedule.status : "no schedule yet"}</Pill>}
+          title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
+          right={
+            <div className="inline-flex rounded-full border p-1 text-xs">
+              <button className={`px-3 py-1 rounded-full ${scheduleView==='my' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('my')}>My Schedule</button>
+              <button className={`px-3 py-1 rounded-full ${scheduleView==='full' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('full')}>Full Schedule</button>
+            </div>
+          }
         >
-          <MyShifts currentUser={currentUser} schedule={schedule} weekDays={weekDays} positionsById={positionsById} />
-          <TimeOffForm onSubmit={(vals) => createTimeOff({ user_id: currentUser.id, ...vals })} />
-          {flags.unavailabilityEnabled && flags.employeeEditUnavailability && (
-            <MyUnavailabilityEditor
-              currentUser={currentUser}
-              list={unavailability}
-              onAdd={addUnavailability}
-              onUpdate={updateUnavailability}
-              onDelete={deleteUnavailability}
+          {scheduleView==='my' ? (
+            <>
+              <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
+              <div className="mt-3" />
+              <MyShifts currentUser={currentUser} schedule={schedule} weekDays={weekDays} positionsById={positionsById} />
+            </>
+          ) : (
+            <WeekGrid
+              employees={scopedUsers}
+              weekDays={weekDays}
+              shifts={schedule?.shifts || []}
+              positionsById={positionsById}
+              unavailability={unavailability}
+              timeOffList={data.time_off_requests}
+              showTimeOffChips={flags.showTimeOffOnSchedule}
             />
           )}
-          <MyTimeOffList data={data} currentUser={currentUser} />
+        </Section>
+      )}
+
+      {tab === "requests" && (
+        <Section title="Requests">
+          {(() => {
+            const pendingTO = (data.time_off_requests||[]).filter(r=> isManager ? r.status==='pending' : (r.user_id===currentUser.id && r.status==='pending')).length;
+            const pendingSwaps = isManager
+              ? (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length
+              : (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length;
+            return (
+              <div>
+                <div className="mb-3 flex gap-2">
+                  <TabBtn id="timeoff" tab={requestsSubTab} setTab={setRequestsSubTab} label={`Time Off (${pendingTO})`} />
+                  <TabBtn id="swaps" tab={requestsSubTab} setTab={setRequestsSubTab} label={`Swaps (${pendingSwaps})`} />
+                </div>
+                {requestsSubTab === 'timeoff' && (
+                  isManager
+                    ? <RequestsPanel users={users} list={data.time_off_requests} onSetStatus={setTimeOffStatus} />
+                    : (
+                      <>
+                        <TimeOffForm onSubmit={(vals) => createTimeOff({ user_id: currentUser.id, ...vals })} />
+                        <MyTimeOffList data={data} currentUser={currentUser} />
+                      </>
+                    )
+                )}
+                {requestsSubTab === 'swaps' && (
+                  isManager ? (
+                    <SwapQueuePanel
+                      requests={data.swap_requests}
+                      offers={data.swap_offers}
+                      users={users}
+                      findShiftById={(id)=> (data.schedules||[]).flatMap(s=> (s.shifts||[]).map(sh=> ({...sh, __location_id: s.location_id}))).find(x=>x.id===id)}
+                      onApprove={approveSwapRequest}
+                      onDecline={declineSwapRequest}
+                    />
+                  ) : (
+                    <EmployeeSwapsPanel
+                      data={data}
+                      users={users}
+                      currentUser={currentUser}
+                      positionsById={positionsById}
+                      findShiftById={(id)=> (data.schedules||[]).flatMap(s=> (s.shifts||[]).map(sh=> ({...sh, __location_id: s.location_id}))).find(x=>x.id===id)}
+                      onCreateRequest={(payload)=> createSwapRequest(payload)}
+                      onOfferCover={(requestId)=> createSwapOffer({ requestId, offerShiftId: null })}
+                      onOfferTrade={(requestId, offerShiftId)=> createSwapOffer({ requestId, offerShiftId })}
+                      onWithdrawOffer={withdrawOffer}
+                      onAcceptOffer={acceptOffer}
+                      onCancelRequest={cancelSwapRequest}
+                      flags={flags}
+                    />
+                  )
+                )}
+              </div>
+            );
+          })()}
         </Section>
       )}
 
@@ -1556,6 +1626,46 @@ function MyUnavailabilityEditor({ currentUser, list, onAdd, onUpdate, onDelete }
             </li>
           ))}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+// Employee read-only availability with simple request form
+function EmployeeAvailabilityView({ currentUser, list }) {
+  const mine = useMemo(() => (list || []).filter(ua => ua.user_id === currentUser.id && ua.kind === 'weekly'), [list, currentUser?.id]);
+  const [note, setNote] = useState('');
+  const [pattern, setPattern] = useState('');
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <div>
+        <h4 className="mb-2 font-semibold">Weekly availability</h4>
+        <ul className="divide-y rounded-2xl border">
+          {mine.length === 0 && <li className="p-3 text-sm text-gray-600">No weekly rows set.</li>}
+          {mine.map(ua => (
+            <li key={ua.id} className="flex items-center justify-between p-3 text-sm">
+              <div>
+                <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm} - {ua.end_hhmm}</div>
+                {ua.notes && <div className="text-xs text-gray-600">{ua.notes}</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <h4 className="mb-2 font-semibold">Request change</h4>
+        <div className="grid gap-2">
+          <label className="grid gap-1 text-sm">
+            <span className="text-gray-600">Preferred pattern (free text)</span>
+            <input value={pattern} onChange={(e)=>setPattern(e.target.value)} placeholder="e.g., Mon-Thu 9-5" className="rounded-xl border px-3 py-2" />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-gray-600">Note</span>
+            <textarea value={note} onChange={(e)=>setNote(e.target.value)} className="min-h-20 rounded-xl border px-3 py-2" />
+          </label>
+          <button className="rounded-xl border px-3 py-2 text-sm" onClick={()=>{ alert('Availability change requested'); setNote(''); setPattern(''); }}>Submit request</button>
+          <div className="text-xs text-gray-600">Your manager will review and update canonical availability.</div>
+        </div>
       </div>
     </div>
   );
