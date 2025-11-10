@@ -405,7 +405,7 @@ function WeekGrid(props) {
     onProposeTrade,
     allowCrossPosition = false,
     isQualified = () => true,
-    compact = false,
+    dense = false,
     onDuplicate,
     onMoveShift,
   } = props || {};
@@ -428,8 +428,8 @@ function WeekGrid(props) {
     return m;
   }, [employees, timeOffList]);
 
-  const cellPad = compact ? 'p-1 min-h-[60px]' : 'p-2 min-h-24';
-  const bubblePad = compact ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
+  const cellPad = dense ? 'p-1 min-h-[60px]' : 'p-2 min-h-24';
+  const bubblePad = dense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
 
   return (
     <div className="overflow-x-auto">
@@ -518,7 +518,7 @@ function WeekGrid(props) {
                           key={s.id}
                           draggable
                           onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; }}
-                          className={`group relative rounded-xl border border-gray-200 bg-white ${compact ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm'} shadow-sm transition hover:border-gray-300 hover:shadow-md`}
+                          className={`group relative rounded-xl border border-gray-200 bg-white ${dense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm'} shadow-sm transition hover:border-gray-300 hover:shadow-md`}
                           style={{ borderLeft: `4px solid ${colorForPosition(s.position_id)}` }}
                           onClick={() => {
                             if (showTileActions && currentUserId && s.user_id === currentUserId) {
@@ -714,7 +714,7 @@ export default function App() {
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
 
   const [shiftModal, setShiftModal] = useState({ open: false, preUserId: null, preDay: null });
-  const [compact, setCompact] = useState(false);
+  const [dense, setDense] = useState(false);
 
   const location = data.locations.find((l) => l.id === locationId) || data.locations[0];
   const users = data.users.filter((u) => u.location_id === location.id && u.is_active);
@@ -1314,7 +1314,7 @@ function InnerApp(props) {
             <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
           </div>
           <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
-            <input type="checkbox" checked={compact} onChange={(e)=> setCompact(e.target.checked)} />
+            <input type="checkbox" checked={dense} onChange={(e)=> setDense(e.target.checked)} />
             Compact
           </label>
           <div className="rounded-xl border px-3 py-2 text-sm">{currentUser.full_name} <span className="text-gray-500">({currentUser.role})</span></div>
@@ -1372,7 +1372,7 @@ function InnerApp(props) {
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
-              compact={compact}
+              dense={dense}
               onDuplicate={duplicateShift}
               onMoveShift={moveShift}
             />
@@ -2770,6 +2770,7 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
+
 
 
 
