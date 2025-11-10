@@ -44,10 +44,10 @@ DB Migrations
 Notes
 
 - Express routes are wired with demo auth and in-memory storage for this repo; replace with real JWT middleware and Postgres DAO in production.
-- UI icons on Full Schedule for open giveaways/trades can be added after hooking real data (kept minimal here to avoid layout noise).
+- Added subtle icons on tiles in Full Schedule for active giveaways (🎁) and trades (⇄). Hover shows a short tooltip; layout unchanged.
+- Employees can click their own shift tiles (in Full view) to open a minimal action menu: Offer Giveaway or Propose Trade. Actions respect existing demo validations.
 - PDF export and push notifications are intentionally out of scope per request.
 
 Tests
 
 - Vitest: added basic tests for Schedule toggle persistence and the Requests sub-tabs rendering with counters.
-

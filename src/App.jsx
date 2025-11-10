@@ -143,6 +143,7 @@ const seedData = () => ({
   tasks: [], // {id, title, assigned_to, due_date, status:'open'|'done', created_by}
   task_templates: [], // {id, title}
   messages: [], // {id, from_user_id, to_user_id, body, created_at}
+  user_qualifications: [], // {id, user_id, position_id}
   feature_flags: defaultFlags(),
 });
 
@@ -170,6 +171,22 @@ const loadData = () => {
       phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "", ...u,
       emergency_contact: { name: "", phone: "", ...(u.emergency_contact||{}) }
     }));
+    // backfill qualifications: default each user qualified for their location's positions
+    if (!parsed.user_qualifications) parsed.user_qualifications = [];
+    if ((parsed.user_qualifications||[]).length === 0) {
+      const qual = [];
+      const positionsByLoc = {};
+      for (const p of (parsed.positions||[])) {
+        if (!positionsByLoc[p.location_id]) positionsByLoc[p.location_id] = [];
+        positionsByLoc[p.location_id].push(p);
+      }
+      for (const u of (parsed.users||[])) {
+        for (const p of (positionsByLoc[u.location_id]||[])) {
+          qual.push({ id: uid(), user_id: u.id, position_id: p.id });
+        }
+      }
+      parsed.user_qualifications = qual;
+    }
     return parsed;
   } catch (e) {
     console.error(e);
@@ -313,7 +330,18 @@ function WeekGrid({
   showTimeOffChips,
   onCreate,
   onDelete,
+  // New props for swap actions/icons
+  currentUserId,
+  showTileActions = false,
+  swapIndicators = {}, // { [shiftId]: { give?: boolean, trade?: boolean } }
+  onOfferGiveaway,
+  onProposeTrade,
+  allowCrossPosition = false,
+  isQualified = () => true,
 }) {
+  const [openShiftMenu, setOpenShiftMenu] = useState(null);
+  const userNameById = useMemo(() => Object.fromEntries((employees||[]).map(u => [u.id, u.full_name])), [employees]);
+  const coworkerShifts = useMemo(() => (currentUserId ? (shifts||[]).filter(sh => sh.user_id !== currentUserId) : []), [shifts, currentUserId]);
   const byUserUnav = useMemo(() => {
     const map = {};
     for (const u of employees) map[u.id] = [];
@@ -393,18 +421,70 @@ function WeekGrid({
                       ))}
 
                       {dayShifts.map((s) => (
-                        <div key={s.id} className="rounded-xl border px-2 py-1 text-sm shadow-sm">
+                        <div
+                          key={s.id}
+                          className="relative rounded-xl border px-2 py-1 text-sm shadow-sm"
+                          onClick={() => {
+                            if (showTileActions && currentUserId && s.user_id === currentUserId) {
+                              setOpenShiftMenu((v) => (v === s.id ? null : s.id));
+                            }
+                          }}
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <div className="font-medium">
                               {fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}
                             </div>
-                            <button className="text-xs underline" onClick={() => onDelete(s.id)}>
-                              delete
-                            </button>
+                            {onDelete && (
+                              <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}>
+                                delete
+                              </button>
+                            )}
                           </div>
                           <div className="text-xs text-gray-600">
-                            {positionsById[s.position_id]?.name || "—"}
+                            {positionsById[s.position_id]?.name || "–"}
                           </div>
+
+                          {(swapIndicators[s.id]?.give || swapIndicators[s.id]?.trade) && (
+                            <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
+                              {swapIndicators[s.id]?.give && <span title="Giveaway">🎁</span>}
+                              {swapIndicators[s.id]?.trade && <span title="Trade">⇄</span>}
+                            </div>
+                          )}
+
+                          {showTileActions && currentUserId && s.user_id === currentUserId && openShiftMenu === s.id && (
+                            <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow">
+                              <button
+                                className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+                                onClick={(e) => { e.stopPropagation(); onOfferGiveaway?.(s.id); setOpenShiftMenu(null); }}
+                              >
+                                Offer Giveaway
+                              </button>
+                              <div className="mt-1 grid gap-1">
+                                <div className="px-2 text-[11px] text-gray-600">Propose Trade for:</div>
+                                <select
+                                  className="w-56 rounded border px-2 py-1"
+                                  onChange={(e) => {
+                                    const targetId = e.target.value || '';
+                                    if (!targetId) return;
+                                    e.stopPropagation();
+                                    onProposeTrade?.(s.id, targetId);
+                                    setOpenShiftMenu(null);
+                                  }}
+                                >
+                                  <option value="">Select coworker shift…</option>
+                                  {coworkerShifts.filter((sh)=> {
+                                    const same = sh.position_id === s.position_id;
+                                    const cross = allowCrossPosition && isQualified(currentUserId, sh.position_id) && isQualified(sh.user_id, s.position_id);
+                                    return same || cross;
+                                  }).map((sh) => (
+                                    <option key={sh.id} value={sh.id}>
+                                      {(userNameById[sh.user_id] || 'Unknown')} · {fmtDateLabel(sh.starts_at)} · {fmtTime(sh.starts_at)}–{fmtTime(sh.ends_at)} {positionsById[sh.position_id]?.name ? `· ${positionsById[sh.position_id]?.name}` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
 
@@ -751,6 +831,30 @@ function InnerApp(props) {
   const [swapModal, setSwapModal] = useState({ open: false, shiftId: null });
   const [offerModal, setOfferModal] = useState({ open: false, requestId: null });
 
+  // Build swap indicator map for tiles
+  const swapIndicators = useMemo(() => {
+    const map = {};
+    for (const r of (data.swap_requests || [])) {
+      if (!activeSwapStatuses.has(r.status)) continue;
+      if (!map[r.shift_id]) map[r.shift_id] = {};
+      if (r.type === 'give') map[r.shift_id].give = true;
+      if (r.type === 'trade') {
+        map[r.shift_id].trade = true;
+        if (r.target_shift_id) {
+          if (!map[r.target_shift_id]) map[r.target_shift_id] = {};
+          map[r.target_shift_id].trade = true;
+        }
+      }
+    }
+    return map;
+  }, [data.swap_requests]);
+
+  // Tile action shortcuts
+  const offerGiveawayFromTile = (shiftId) => {
+    createSwapRequest({ shiftId, type: 'give' });
+  };
+  const proposeTradeFromTile = (shiftId, targetShiftId) => { if (!targetShiftId) return; createSwapRequest({ shiftId, type: 'trade', targetShiftId }); };
+
   const allShifts = useMemo(() => (data.schedules || []).flatMap(s => (s.shifts || []).map(sh => ({...sh, __schedule_id: s.id, __location_id: s.location_id }))), [data.schedules]);
   const findShiftById = (shiftId) => allShifts.find(s => s.id === shiftId) || null;
   const userFutureShifts = (userId) => allShifts.filter(s => s.user_id === userId && safeDate(s.starts_at) > new Date());
@@ -771,7 +875,14 @@ function InnerApp(props) {
     }
     return false;
   };
-  const positionMatchesOrAllowed = (posA, posB) => flags.allowCrossPosition || posA === posB;
+  // Qualifications
+  const isQualified = (userId, positionId) => (data.user_qualifications || []).some(q => q.user_id === userId && q.position_id === positionId);
+  const tradeAllowed = (baseShift, otherShift, requesterId, offererId) => {
+    if (baseShift.position_id === otherShift.position_id) return true;
+    if (!flags.allowCrossPosition) return false;
+    return isQualified(requesterId, otherShift.position_id) && isQualified(offererId, baseShift.position_id);
+  };
+  const coverAllowed = (offererId, baseShift) => isQualified(offererId, baseShift.position_id);
 
   const addAudit = (swap_id, kind, actor_id, action, meta = {}) => {
     const row = { id: uid(), swap_id, kind, actor_id, action, meta, created_at: nowIso() };
@@ -797,7 +908,7 @@ function InnerApp(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const createSwapRequest = ({ shiftId, type, message, expiresAt }) => {
+  const createSwapRequest = ({ shiftId, type, message, expiresAt, targetShiftId }) => {
     const shift = findShiftById(shiftId);
     if (!shift) return alert('Shift not found');
     if (shift.user_id !== currentUser.id) return alert('You can only request a swap for your own shift');
@@ -806,8 +917,9 @@ function InnerApp(props) {
     const hasActive = (data.swap_requests || []).some(r => r.shift_id === shiftId && activeSwapStatuses.has(r.status));
     if (hasActive) return alert('This shift already has an active swap request');
     const req = { id: uid(), shift_id: shiftId, requester_id: currentUser.id, type, status: 'open', message: message || '', created_at: nowIso(), expires_at: expiresAt || null };
+    if (type === 'trade' && targetShiftId) req.target_shift_id = targetShiftId;
     setData((d) => ({ ...d, swap_requests: [req, ...d.swap_requests] }));
-    addAudit(req.id, 'request', currentUser.id, 'create', { type, message });
+    addAudit(req.id, 'request', currentUser.id, 'create', { type, message, target_shift_id: targetShiftId || null });
     setSwapModal({ open: false, shiftId: null });
   };
 
@@ -837,6 +949,8 @@ function InnerApp(props) {
       if (!offerShiftId) return alert('Choose one of your shifts to trade');
       const myShift = findShiftById(offerShiftId);
       if (!myShift || myShift.user_id !== currentUser.id) return alert('Invalid trade shift');
+      // Trade: position rules
+      if (!tradeAllowed(shift, myShift, req.requester_id, currentUser.id)) return alert('Trade not allowed by cross-train/qualification rules');
       // After trade, neither employee should overlap
       const wouldRequesterOverlap = overlapsAny(req.requester_id, myShift.starts_at, myShift.ends_at, [req.shift_id]);
       const wouldOffererOverlap = overlapsAny(currentUser.id, shift.starts_at, shift.ends_at, [offerShiftId]);
@@ -1008,6 +1122,9 @@ function InnerApp(props) {
               showTimeOffChips={flags.showTimeOffOnSchedule}
               onCreate={(userId, day) => setShiftModal({ open: true, preUserId: userId, preDay: day })}
               onDelete={deleteShift}
+              swapIndicators={swapIndicators}
+              allowCrossPosition={flags.allowCrossPosition}
+              isQualified={isQualified}
             />
           )}
 
@@ -1160,7 +1277,7 @@ function InnerApp(props) {
             <>
               <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
               <div className="mt-3" />
-              <MyShifts currentUser={currentUser} schedule={schedule} weekDays={weekDays} positionsById={positionsById} />
+              <MyShifts currentUser={currentUser} schedule={schedule} weekDays={weekDays} positionsById={positionsById} users={users} swapIndicators={swapIndicators} onOfferGiveaway={offerGiveawayFromTile} onProposeTrade={proposeTradeFromTile} />
             </>
           ) : (
             <WeekGrid
@@ -1171,6 +1288,13 @@ function InnerApp(props) {
               unavailability={unavailability}
               timeOffList={data.time_off_requests}
               showTimeOffChips={flags.showTimeOffOnSchedule}
+              currentUserId={currentUser.id}
+              showTileActions={true}
+              swapIndicators={swapIndicators}
+              onOfferGiveaway={offerGiveawayFromTile}
+              onProposeTrade={proposeTradeFromTile}
+              allowCrossPosition={flags.allowCrossPosition}
+              isQualified={isQualified}
             />
           )}
         </Section>
@@ -1517,7 +1641,7 @@ function LoginPage({ onAfterLogin }) {
   );
 }
 
-function MyShifts({ currentUser, schedule, weekDays, positionsById }) {
+function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
   const myShifts = (schedule?.shifts || []).filter((s) => s.user_id === currentUser.id);
   const byDay = Object.fromEntries(weekDays.map((d) => [fmtDate(d), []]));
   for (const s of myShifts) {
@@ -1525,6 +1649,9 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById }) {
     if (!byDay[k]) byDay[k] = [];
     byDay[k].push(s);
   }
+  const [openShiftMenu, setOpenShiftMenu] = useState(null);
+  const userNameById = useMemo(() => Object.fromEntries((users||[]).map(u => [u.id, u.full_name])), [users]);
+  const coworkerShifts = useMemo(() => ((schedule?.shifts||[]).filter(sh => sh.user_id !== currentUser.id)), [schedule?.shifts, currentUser?.id]);
   return (
     <div className="grid gap-2 md:grid-cols-2">
       {weekDays.map((d) => (
@@ -1535,9 +1662,57 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById }) {
           ) : (
             <ul className="space-y-2">
               {byDay[fmtDate(d)].map((s) => (
-                <li key={s.id} className="rounded-xl border px-3 py-2 text-sm">
-                  <div className="font-medium">{fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}</div>
-                  <div className="text-xs text-gray-600">{positionsById[s.position_id]?.name || "—"} • Break: {s.break_min}m</div>
+                <li
+                  key={s.id}
+                  className="relative rounded-xl border px-3 py-2 text-sm"
+                  onClick={() => setOpenShiftMenu((v) => (v === s.id ? null : s.id))}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}</div>
+                  </div>
+                  <div className="text-xs text-gray-600">{positionsById[s.position_id]?.name || "–"} • Break: {s.break_min}m</div>
+
+                  {(swapIndicators[s.id]?.give || swapIndicators[s.id]?.trade) && (
+                    <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
+                      {swapIndicators[s.id]?.give && <span title="Giveaway">🎁</span>}
+                      {swapIndicators[s.id]?.trade && <span title="Trade">⇄</span>}
+                    </div>
+                  )}
+
+                  {openShiftMenu === s.id && (
+                    <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow">
+                      <button
+                        className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+                        onClick={(e) => { e.stopPropagation(); onOfferGiveaway?.(s.id); setOpenShiftMenu(null); }}
+                      >
+                        Offer Giveaway
+                      </button>
+                      <div className="mt-1 grid gap-1">
+                        <div className="px-2 text-[11px] text-gray-600">Propose Trade for:</div>
+                        <select
+                          className="w-56 rounded border px-2 py-1"
+                          onChange={(e) => {
+                            const targetId = e.target.value || '';
+                            if (!targetId) return;
+                            e.stopPropagation();
+                            onProposeTrade?.(s.id, targetId);
+                            setOpenShiftMenu(null);
+                          }}
+                        >
+                          <option value="">Select coworker shift…</option>
+                          {coworkerShifts.filter((sh)=>{
+                            const same = sh.position_id === s.position_id;
+                            const cross = allowCrossPosition && isQualified(currentUser.id, sh.position_id) && isQualified(sh.user_id, s.position_id);
+                            return same || cross;
+                          }).map((sh) => (
+                            <option key={sh.id} value={sh.id}>
+                              {(userNameById[sh.user_id] || 'Unknown')} · {fmtDateLabel(sh.starts_at)} · {fmtTime(sh.starts_at)}–{fmtTime(sh.ends_at)} {positionsById[sh.position_id]?.name ? `· ${positionsById[sh.position_id]?.name}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -2200,3 +2375,7 @@ function SelfTestsPanel() {
     </div>
   );
 }
+
+
+
+

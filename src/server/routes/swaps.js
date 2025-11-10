@@ -28,6 +28,10 @@ const requireManager = (req, res, next) => {
 // Replace with real DB calls. Shapes align with migration.
 const swapOffers = new Map(); // id -> offer
 const swapClaims = new Map(); // id -> claim
+const userPositions = new Map(); // userId -> Set(positionId)
+
+// demo policy flag
+const allowCrossPosition = false; // set true if allowing cross-position trades
 
 function uuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -38,6 +42,12 @@ function uuid() {
 
 // Placeholder checks — wire these to DB
 async function isShiftOwnedBy(shiftId, userId) { return true; }
+async function getShiftPosition(shiftId) { return null; } // TODO: fetch from DB
+function isQualified(userId, positionId) {
+  const set = userPositions.get(userId);
+  if (!set) return false;
+  return set.has(positionId);
+}
 async function hasActiveOffer(shiftId) {
   for (const o of swapOffers.values()) {
     if (o.shift_id === shiftId && ['pending','approved','claimed'].includes(o.status)) return true;
@@ -67,6 +77,12 @@ router.post('/offers', requireAuth, async (req, res) => {
     return res.status(409).json({ error: 'active_offer_exists' });
   }
   if (type === 'trade') {
+    // Position/cross-train checks (placeholder until wired to DB)
+    const posA = await getShiftPosition(shiftId);
+    const posB = await getShiftPosition(targetShiftId);
+    if (posA && posB && posA !== posB && !allowCrossPosition) {
+      return res.status(409).json({ error: 'position_mismatch' });
+    }
     // Reject when overlaps/conflicts exist
     if (await wouldOverlapOrConflict(req.user.id, shiftId, targetShiftId)) {
       return res.status(409).json({ error: 'conflict' });
@@ -154,4 +170,3 @@ router.post('/:id/claim', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
-
