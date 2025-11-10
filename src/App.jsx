@@ -373,8 +373,8 @@ function WeekGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[1000px]">
-        <div className="grid grid-cols-[220px_repeat(7,1fr)]">
+      <div className="w-full">
+        <div className="grid grid-cols-[200px_repeat(7,1fr)]">
           <div className="sticky left-0 z-10 bg-gray-50 p-2 font-semibold">Employee</div>
           {weekDays.map((d) => (
             <div key={String(d)} className="p-2 text-center font-semibold bg-gray-50">
@@ -436,7 +436,7 @@ function WeekGrid({
                       {dayShifts.map((s) => (
                         <div
                           key={s.id}
-                          className="relative rounded-xl border px-2 py-1 text-sm shadow-sm"
+                          className="group relative rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-sm transition hover:border-gray-300 hover:shadow-md"
                           onClick={() => {
                             if (showTileActions && currentUserId && s.user_id === currentUserId) {
                               setOpenShiftMenu((v) => (v === s.id ? null : s.id));
@@ -447,21 +447,23 @@ function WeekGrid({
                             <div className="font-medium">
                               {fmtTime(s.starts_at)} â€“ {fmtTime(s.ends_at)}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="absolute right-1 top-1 hidden gap-1 md:flex md:opacity-0 md:transition md:duration-150 md:group-hover:opacity-100">
                               {onEdit && (
-                                <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onEdit(s); }}>
+                                <button className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onEdit(s); }} aria-label="Edit shift">
                                   edit
                                 </button>
                               )}
                               {onDelete && (
-                                <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}>
+                                <button className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }} aria-label="Delete shift">
                                   delete
                                 </button>
                               )}
                             </div>
                           </div>
-                          <div className="text-xs text-gray-600">
-                            {positionsById[s.position_id]?.name || "?"}
+                          <div className="mt-1">
+                            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+                              {positionsById[s.position_id]?.name || "?"}
+                            </span>
                           </div>
 
                           {(swapIndicators[s.id]?.give || swapIndicators[s.id]?.trade) && (
