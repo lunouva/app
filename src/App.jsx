@@ -118,34 +118,46 @@ const defaultFlags = () => ({
   weekStartsOn: 1, // 0=Sun ... 6=Sat
 });
 
-const seedData = () => ({
-  locations: [{ id: "loc1", name: "Main Shop" }],
-  positions: [
-    { id: uid(), location_id: "loc1", name: "Scooper" },
-    { id: uid(), location_id: "loc1", name: "Shift Lead" },
-    { id: uid(), location_id: "loc1", name: "Manager" },
-  ],
-  users: [
-    { id: uid(), location_id: "loc1", full_name: "Manager Mike", email: "manager@demo.local", password: "demo", role: "manager", is_active: true, phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "" },
-    { id: uid(), location_id: "loc1", full_name: "Owner Olivia", email: "owner@demo.local", password: "demo", role: "owner", is_active: true, phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "" },
-    { id: uid(), location_id: "loc1", full_name: "Lily Adams", email: "lily@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "she/her", emergency_contact: { name: "A. Adams", phone: "555-0102" }, attachments: [], notes: "" },
-    { id: uid(), location_id: "loc1", full_name: "Gavin Reed", email: "gavin@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "he/him", emergency_contact: { name: "R. Reed", phone: "555-0103" }, attachments: [], notes: "" },
-    { id: uid(), location_id: "loc1", full_name: "Riley Brooks", email: "riley@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "they/them", emergency_contact: { name: "K. Brooks", phone: "555-0104" }, attachments: [], notes: "" },
-  ],
-  schedules: [],
-  // Swap Shifts data (in-app demo storage)
-  swap_requests: [], // {id, shift_id, requester_id, type:'give'|'trade', status, message, created_at, expires_at}
-  swap_offers: [],   // {id, request_id, offerer_id, offer_shift_id|null, status, created_at}
-  swap_audit_logs: [], // {id, swap_id, kind:'request'|'offer', actor_id, action, meta, created_at}
-  time_off_requests: [],
-  unavailability: [], // {id, user_id, kind:'weekly'|'date', weekday?, date?, start_hhmm, end_hhmm, notes}
-  news_posts: [], // {id, user_id, body, created_at}
-  tasks: [], // {id, title, assigned_to, due_date, status:'open'|'done', created_by}
-  task_templates: [], // {id, title}
-  messages: [], // {id, from_user_id, to_user_id, body, created_at}
-  user_qualifications: [], // {id, user_id, position_id}
-  feature_flags: defaultFlags(),
-});
+const seedData = () => {
+  const loc1 = { id: "loc1", name: "Main Shop" };
+  const positions = [
+    { id: uid(), location_id: loc1.id, name: "Scooper" },
+    { id: uid(), location_id: loc1.id, name: "Shift Lead" },
+    { id: uid(), location_id: loc1.id, name: "Manager" },
+  ];
+  const pByName = Object.fromEntries(positions.map(p => [p.name, p]));
+  const users = [
+    { id: uid(), location_id: loc1.id, full_name: "Manager Mike", email: "manager@demo.local", password: "demo", role: "manager", is_active: true, phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "" },
+    { id: uid(), location_id: loc1.id, full_name: "Owner Olivia", email: "owner@demo.local", password: "demo", role: "owner", is_active: true, phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "" },
+    { id: uid(), location_id: loc1.id, full_name: "Lily Adams", email: "lily@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "she/her", emergency_contact: { name: "A. Adams", phone: "555-0102" }, attachments: [], notes: "" },
+    { id: uid(), location_id: loc1.id, full_name: "Gavin Reed", email: "gavin@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "he/him", emergency_contact: { name: "R. Reed", phone: "555-0103" }, attachments: [], notes: "" },
+    { id: uid(), location_id: loc1.id, full_name: "Riley Brooks", email: "riley@example.com", password: "demo", role: "employee", is_active: true, phone: "", birthday: "", pronouns: "they/them", emergency_contact: { name: "K. Brooks", phone: "555-0104" }, attachments: [], notes: "" },
+  ];
+  const uByName = Object.fromEntries(users.map(u => [u.full_name, u]));
+  const user_qualifications = [
+    { id: uid(), user_id: uByName["Lily Adams"].id, position_id: pByName["Scooper"].id },
+    { id: uid(), user_id: uByName["Gavin Reed"].id, position_id: pByName["Scooper"].id },
+    { id: uid(), user_id: uByName["Riley Brooks"].id, position_id: pByName["Shift Lead"].id },
+  ];
+  return {
+    locations: [loc1],
+    positions,
+    users,
+    schedules: [],
+    // Swap Shifts data (in-app demo storage)
+    swap_requests: [], // {id, shift_id, requester_id, type:'give'|'trade', status, message, created_at, expires_at}
+    swap_offers: [],   // {id, request_id, offerer_id, offer_shift_id|null, status, created_at}
+    swap_audit_logs: [], // {id, swap_id, kind:'request'|'offer', actor_id, action, meta, created_at}
+    time_off_requests: [],
+    unavailability: [], // {id, user_id, kind:'weekly'|'date', weekday?, date?, start_hhmm, end_hhmm, notes}
+    news_posts: [], // {id, user_id, body, created_at}
+    tasks: [], // {id, title, assigned_to, due_date, status:'open'|'done', created_by}
+    task_templates: [], // {id, title}
+    messages: [], // {id, from_user_id, to_user_id, body, created_at}
+    user_qualifications,
+    feature_flags: defaultFlags(),
+  };
+};
 
 const loadData = () => {
   try {
@@ -1419,7 +1431,26 @@ function InnerApp(props) {
 
             <SelfTestsPanel />
           </div>
-        </Section>
+        
+            <div>
+              <div className="font-semibold">Qualifications</div>
+              <div className="mt-2">
+                <QualificationsEditor
+                  users={users}
+                  positions={positions}
+                  data={data}
+                  onToggle={(userId, positionId, enabled) => {
+                    setData(d => {
+                      const exists = (d.user_qualifications||[]).some(q=> q.user_id===userId && q.position_id===positionId);
+                      let next = d.user_qualifications||[];
+                      if (enabled && !exists) next = [...next, { id: uid(), user_id: userId, position_id: positionId }];
+                      if (!enabled && exists) next = next.filter(q=> !(q.user_id===userId && q.position_id===positionId));
+                      return { ...d, user_qualifications: next };
+                    });
+                  }}
+                />
+              </div>
+            </div></Section>
       )}
 
       <ShiftEditorModal
@@ -2379,3 +2410,59 @@ function SelfTestsPanel() {
 
 
 
+
+
+function QualificationsEditor({ users, positions, data, onToggle }) {
+  const byUser = useMemo(() => {
+    const map = {};
+    for (const u of users) map[u.id] = new Set();
+    for (const q of (data.user_qualifications || [])) {
+      if (!map[q.user_id]) map[q.user_id] = new Set();
+      map[q.user_id].add(q.position_id);
+    }
+    return map;
+  }, [users, data.user_qualifications]);
+  const positionsByLoc = useMemo(() => {
+    const m = {};
+    for (const p of positions) {
+      if (!m[p.location_id]) m[p.location_id] = [];
+      m[p.location_id].push(p);
+    }
+    return m;
+  }, [positions]);
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            <th className="p-2">Employee</th>
+            {positions.map(p => (
+              <th key={p.id} className="p-2 whitespace-nowrap">{p.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {users.map(u => (
+            <tr key={u.id} className="border-t">
+              <td className="p-2 font-medium whitespace-nowrap">{u.full_name}</td>
+              {positions.map(p => {
+                const checked = byUser[u.id]?.has(p.id) || false;
+                const sameLoc = u.location_id === p.location_id;
+                return (
+                  <td key={p.id} className="p-2 text-center">
+                    <input
+                      type="checkbox"
+                      disabled={!sameLoc}
+                      checked={checked}
+                      onChange={(e)=> onToggle(u.id, p.id, e.target.checked)}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
