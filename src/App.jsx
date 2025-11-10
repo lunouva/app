@@ -386,29 +386,29 @@ function AuthProvider({ children, data, setData }) {
 }
 
 // ---------- week grid ----------
-function WeekGrid({
-  employees,
-  weekDays,
-  shifts,
-  positionsById,
-  unavailability,
-  timeOffList,
-  showTimeOffChips,
-  onCreate,
-  onDelete,
-  onEdit,
-  // New props for swap actions/icons
-  currentUserId,
-  showTileActions = false,
-  swapIndicators = {}, // { [shiftId]: { give?: boolean, trade?: boolean } }
-  onOfferGiveaway,
-  onProposeTrade,
-  allowCrossPosition = false,
-  isQualified = () => true,
-  compact = false,
-  onDuplicate,
-  onMoveShift,
-}) {
+function WeekGrid(props) {
+  const {
+    employees,
+    weekDays,
+    shifts,
+    positionsById,
+    unavailability,
+    timeOffList,
+    showTimeOffChips,
+    onCreate,
+    onDelete,
+    onEdit,
+    currentUserId,
+    showTileActions = false,
+    swapIndicators = {},
+    onOfferGiveaway,
+    onProposeTrade,
+    allowCrossPosition = false,
+    isQualified = () => true,
+    compact = false,
+    onDuplicate,
+    onMoveShift,
+  } = props || {};
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
   const userNameById = useMemo(() => Object.fromEntries((employees||[]).map(u => [u.id, u.full_name])), [employees]);
   const coworkerShifts = useMemo(() => (currentUserId ? (shifts||[]).filter(sh => sh.user_id !== currentUserId) : []), [shifts, currentUserId]);
