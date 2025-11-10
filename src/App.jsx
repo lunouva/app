@@ -1708,7 +1708,7 @@ function InnerApp(props) {
               </ol>
             </div>
 
-            <SelfTestsPanel />
+            {/* <SelfTestsPanel /> */}
         </Section>
       )}
       <ShiftUpdateModal
