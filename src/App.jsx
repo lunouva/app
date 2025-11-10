@@ -2742,15 +2742,18 @@ function QualificationsEditor({ users, positions, data, onToggle }) {
 
 
 function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
-  if (!shift) return null;
+  // Always initialize hooks (do not return before hooks)
   const toHHMM = (dt) => { const d = safeDate(dt); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return `${h}:${m}`; };
-  const [userId, setUserId] = useState(shift.user_id);
-  const [positionId, setPositionId] = useState(shift.position_id);
-  const [day, setDay] = useState(safeDate(shift.starts_at));
-  const [start, setStart] = useState(toHHMM(shift.starts_at));
-  const [end, setEnd] = useState(toHHMM(shift.ends_at));
-  const [breakMin, setBreakMin] = useState(shift.break_min || 0);
-  const [notes, setNotes] = useState(shift.notes || '');
+  const seedUser = users?.[0]?.id || '';
+  const seedPos = positions?.[0]?.id || '';
+  const seedDay = new Date();
+  const [userId, setUserId] = useState(shift?.user_id ?? seedUser);
+  const [positionId, setPositionId] = useState(shift?.position_id ?? seedPos);
+  const [day, setDay] = useState(safeDate(shift?.starts_at ?? seedDay));
+  const [start, setStart] = useState(toHHMM(shift?.starts_at ?? seedDay));
+  const [end, setEnd] = useState(toHHMM(shift?.ends_at ?? seedDay));
+  const [breakMin, setBreakMin] = useState(shift?.break_min || 0);
+  const [notes, setNotes] = useState(shift?.notes || '');
 
   useEffect(() => {
     if (shift) {
@@ -2763,6 +2766,8 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
       setNotes(shift.notes || '');
     }
   }, [shift, open]);
+
+  if (!open || !shift) return null;
 
   return (
     <Modal
