@@ -1088,10 +1088,10 @@ function InnerApp(props) {
     if (!existing) setScheduleView(currentUser.role !== 'employee' ? 'full' : 'my');
   }, [currentUser]);
 
-  if (!currentUser) return <LoginPage onAfterLogin={() => setTab("schedule")} />;
+  const notAuthed = !currentUser;
 
   const flags = data.feature_flags || defaultFlags();
-  const isManager = currentUser.role !== "employee";
+  const isManager = (currentUser?.role || 'employee') !== "employee";
   const scopedUsers = users;
 
   const shiftWeek = (delta) => setWeekStart((s) => fmtDate(startOfWeek(addDays(s, delta * 7), flags.weekStartsOn)));
@@ -1177,9 +1177,10 @@ function InnerApp(props) {
   };
 
   useEffect(() => {
+    if (!currentUser) return;
     expireSwaps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser]);
 
   const createSwapRequest = ({ shiftId, type, message, expiresAt, targetShiftId }) => {
     const shift = findShiftById(shiftId);
@@ -1314,7 +1315,9 @@ function InnerApp(props) {
     addAudit(requestId, 'request', currentUser.id, 'decline', {});
   };
 
-  return (
+  return (notAuthed ? (
+    <LoginPage onAfterLogin={() => setTab("schedule")} />
+  ) : (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
       <PrintCSS />
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -1734,7 +1737,7 @@ function InnerApp(props) {
 
       <footer className="py-8 text-center text-xs text-gray-500">Roleâ€‘based demo. Ready to connect to Express/Postgres & JWT for production.</footer>
     </div>
-  );
+  ));
 }
 
 function TabBtn({ id, tab, setTab, label }) {
