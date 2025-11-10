@@ -1060,6 +1060,8 @@ export default function App() {
         addTemplate={addTemplate}
         deleteTemplate={deleteTemplate}
         sendMessage={sendMessage}
+        dense={dense}
+        setDense={setDense}
       />
     </AuthProvider>
     </ErrorBoundary>
@@ -1073,6 +1075,7 @@ function InnerApp(props) {
     publish, totalHoursByUser, totalHoursByDay, copyCsv, exportCsv, resetDemo, shiftModal, setShiftModal,
     addEmployee, addPosition, createTimeOff, setTimeOffStatus, addUnavailability, updateUnavailability, deleteUnavailability, unavailability,
     addPost, addTask, setTaskStatus, deleteTask, addTemplate, deleteTemplate, sendMessage,
+    dense, setDense,
   } = props;
   const { currentUser, logout } = useAuth();
   // Schedule view toggle (persisted): 'my' or 'full'
