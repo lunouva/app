@@ -405,10 +405,11 @@ function WeekGrid(props) {
     onProposeTrade,
     allowCrossPosition = false,
     isQualified = () => true,
-    dense = false,
+    // use a safe, local flag below to avoid any free variable refs
     onDuplicate,
     onMoveShift,
   } = props || {};
+  const isDense = !!(props && props.dense);
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
   const userNameById = useMemo(() => Object.fromEntries((employees||[]).map(u => [u.id, u.full_name])), [employees]);
   const coworkerShifts = useMemo(() => (currentUserId ? (shifts||[]).filter(sh => sh.user_id !== currentUserId) : []), [shifts, currentUserId]);
@@ -428,8 +429,8 @@ function WeekGrid(props) {
     return m;
   }, [employees, timeOffList]);
 
-  const cellPad = dense ? 'p-1 min-h-[60px]' : 'p-2 min-h-24';
-  const bubblePad = dense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
+  const cellPad = isDense ? 'p-1 min-h-[60px]' : 'p-2 min-h-24';
+  const bubblePad = isDense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
 
   return (
     <div className="overflow-x-auto">
@@ -518,7 +519,7 @@ function WeekGrid(props) {
                           key={s.id}
                           draggable
                           onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; }}
-                          className={`group relative rounded-xl border border-gray-200 bg-white ${dense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm'} shadow-sm transition hover:border-gray-300 hover:shadow-md`}
+                          className={`group relative rounded-xl border border-gray-200 bg-white ${isDense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm'} shadow-sm transition hover:border-gray-300 hover:shadow-md`}
                           style={{ borderLeft: `4px solid ${colorForPosition(s.position_id)}` }}
                           onClick={() => {
                             if (showTileActions && currentUserId && s.user_id === currentUserId) {
