@@ -680,15 +680,13 @@ export default function App() {
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => ${c.kind === 'weekly' ? 'Weekly' : c.date}: -).join('
-');
+      const lines = conflicts.slice(0, 3).map((c) => (c.kind === 'weekly' ? 'Weekly' : c.date) + ': ' + (c.start_hhmm ?? '') + 'â€“' + (c.end_hhmm ?? '') + (c.notes ? ' â€¢ ' + c.notes : '')).join('\n');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> ${r.date_from}- ()).join('
-');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> r.date_from + 'â†’' + r.date_to + ' (' + r.status + ')' + (r.notes ? ' â€¢ ' + r.notes : '')).join('\n');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
@@ -1475,30 +1473,9 @@ function InnerApp(props) {
             </div>
 
             <SelfTestsPanel />
-        
-            <div>
-              <div className="font-semibold">Qualifications</div>
-              <div className="mt-2">
-                <QualificationsEditor
-                  users={users}
-                  positions={positions}
-                  data={data}
-                  onToggle={(userId, positionId, enabled) => {
-                    setData(d => {
-                      const exists = (d.user_qualifications||[]).some(q=> q.user_id===userId && q.position_id===positionId);
-                      let next = d.user_qualifications||[];
-                      if (enabled && !exists) next = [...next, { id: uid(), user_id: userId, position_id: positionId }];
-                      if (!enabled && exists) next = next.filter(q=> !(q.user_id===userId && q.position_id===positionId));
-                      return { ...d, user_qualifications: next };
-                    });
-                  }}
-                />
-            </div>
-              </div>
-            </div>
-          </div>
         </Section>
       )}
+      <ShiftUpdateModal
         open={editModal.open}
         onClose={() => setEditModal({ open: false, shift: null })}
         shift={editModal.shift}
@@ -2278,7 +2255,9 @@ function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShift
             <span className="text-gray-600">My future shift</span>
             <select className="rounded-xl border px-3 py-2" value={formShiftId} onChange={(e)=> setFormShiftId(e.target.value)}>
               {myFutureShifts.map(s => (
-                            {positionsById[s.position_id]?.name || "?"}
+                <option key={s.id} value={s.id}>
+                  {positionsById[s.position_id]?.name || "?"} — {new Date(s.starts_at).toLocaleString()} - {new Date(s.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                </option>
               ))}
             </select>
           </label>
