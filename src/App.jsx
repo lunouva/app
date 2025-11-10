@@ -461,13 +461,13 @@ function WeekGrid({
                             </div>
                           </div>
                           <div className="text-xs text-gray-600">
-                            {positionsById[s.position_id]?.name || "â€“"}
+                            {positionsById[s.position_id]?.name || "?"}
                           </div>
 
                           {(swapIndicators[s.id]?.give || swapIndicators[s.id]?.trade) && (
                             <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
-                              {swapIndicators[s.id]?.give && <span title="Giveaway">ðŸŽ</span>}
-                              {swapIndicators[s.id]?.trade && <span title="Trade">â‡„</span>}
+                              {swapIndicators[s.id]?.give && <span title="Giveaway">Give</span>}
+                              {swapIndicators[s.id]?.trade && <span title="Trade">Trade</span>}
                             </div>
                           )}
 
@@ -680,13 +680,15 @@ export default function App() {
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}-${c.end_hhmm}${c.notes ? ' · ' + c.notes : ''}`).join('\n');
+      const lines = conflicts.slice(0, 3).map((c) => ${c.kind === 'weekly' ? 'Weekly' : c.date}: -).join('
+');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}–${r.date_to} (${r.status})${r.notes ? ' · ' + r.notes : ''}`).join('\n');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> ${r.date_from}- ()).join('
+');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
@@ -1753,12 +1755,12 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
                   <div className="flex items-center justify-between">
                     <div className="font-medium">{fmtTime(s.starts_at)} â€“ {fmtTime(s.ends_at)}</div>
                   </div>
-                  <div className="text-xs text-gray-600">{positionsById[s.position_id]?.name || "â€“"} â€¢ Break: {s.break_min}m</div>
+                            {positionsById[s.position_id]?.name || "?"}
 
                   {(swapIndicators[s.id]?.give || swapIndicators[s.id]?.trade) && (
                     <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
-                      {swapIndicators[s.id]?.give && <span title="Giveaway">ðŸŽ</span>}
-                      {swapIndicators[s.id]?.trade && <span title="Trade">â‡„</span>}
+                      {swapIndicators[s.id]?.give && <span title="Giveaway">Give</span>}
+                      {swapIndicators[s.id]?.trade && <span title="Trade">Trade</span>}
                     </div>
                   )}
 
@@ -2276,7 +2278,7 @@ function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShift
             <span className="text-gray-600">My future shift</span>
             <select className="rounded-xl border px-3 py-2" value={formShiftId} onChange={(e)=> setFormShiftId(e.target.value)}>
               {myFutureShifts.map(s => (
-                <option key={s.id} value={s.id}>{new Date(s.starts_at).toLocaleDateString()} {new Date(s.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} ({positionsById[s.position_id]?.name||'-'})</option>
+                            {positionsById[s.position_id]?.name || "?"}
               ))}
             </select>
           </label>
