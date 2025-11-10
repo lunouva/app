@@ -342,6 +342,7 @@ function WeekGrid({
   showTimeOffChips,
   onCreate,
   onDelete,
+  onEdit,
   // New props for swap actions/icons
   currentUserId,
   showTileActions = false,
@@ -446,11 +447,18 @@ function WeekGrid({
                             <div className="font-medium">
                               {fmtTime(s.starts_at)} â€“ {fmtTime(s.ends_at)}
                             </div>
-                            {onDelete && (
-                              <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}>
-                                delete
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {onEdit && (
+                                <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onEdit(s); }}>
+                                  edit
+                                </button>
+                              )}
+                              {onDelete && (
+                                <button className="text-xs underline" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}>
+                                  delete
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="text-xs text-gray-600">
                             {positionsById[s.position_id]?.name || "â€“"}
@@ -666,6 +674,29 @@ export default function App() {
   };
 
   const deleteShift = (shiftId) => { if (!schedule) return; upsertSchedule((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== shiftId) })); };
+  const updateShift = ({ id, user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes }) => {
+    if (!schedule) return;
+    const startM = minutes(start_hhmm), endM = minutes(end_hhmm);
+    if (!(endM > startM)) { alert('End time must be after start time.'); return; }
+    const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
+    if (conflicts.length) {
+      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}-${c.end_hhmm}${c.notes ? ' · ' + c.notes : ''}`).join('\n');
+      const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSave anyway?`);
+      if (!ok) return;
+    }
+    const timeOffMatches = hasTimeOffConflict(user_id, day);
+    if (timeOffMatches.length) {
+      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}–${r.date_to} (${r.status})${r.notes ? ' · ' + r.notes : ''}`).join('\n');
+      const ok = confirm(`This shift falls during time off:\n${lines}\n\nSave anyway?`);
+      if (!ok) return;
+    }
+    const starts = combineDayAndTime(day, start_hhmm);
+    const ends = combineDayAndTime(day, end_hhmm);
+    upsertSchedule((s) => ({
+      ...s,
+      shifts: s.shifts.map((sh) => sh.id === id ? { ...sh, user_id, position_id, starts_at: starts.toISOString(), ends_at: ends.toISOString(), break_min: Number(break_min||0), notes: notes||'' } : sh)
+    }));
+  };
   const publish = () => { if (!schedule) return; upsertSchedule((s) => ({ ...s, status: s.status === "draft" ? "published" : "draft" })); };
 
   const totalHoursByUser = useMemo(() => {
@@ -843,6 +874,7 @@ function InnerApp(props) {
   const [swapModal, setSwapModal] = useState({ open: false, shiftId: null });
   const [offerModal, setOfferModal] = useState({ open: false, requestId: null });
 
+  const [editModal, setEditModal] = useState({ open: false, shift: null });
   // Build swap indicator map for tiles
   const swapIndicators = useMemo(() => {
     const map = {};
@@ -1133,7 +1165,7 @@ function InnerApp(props) {
               timeOffList={data.time_off_requests}
               showTimeOffChips={flags.showTimeOffOnSchedule}
               onCreate={(userId, day) => setShiftModal({ open: true, preUserId: userId, preDay: day })}
-              onDelete={deleteShift}
+              onDelete={deleteShift} onEdit={(sh) => setEditModal({ open: true, shift: sh })}
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
@@ -1370,11 +1402,39 @@ function InnerApp(props) {
 
       {tab === "settings" && (
         <Section title="Settings">
-          <div className="space-y-6 text-sm">
-            <div>
-              <div className="font-semibold">Feature toggles</div>
-              <div className="mt-2 grid gap-2 md:grid-cols-2">
-                <Checkbox label="Enable Unavailability" checked={flags.unavailabilityEnabled} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, unavailabilityEnabled: v }}))} hint="If off, all unavailability UI is hidden."/>
+  <div className="space-y-6 text-sm">
+    <div>
+      <div className="font-semibold">Feature toggles</div>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
+        <Checkbox label="Enable Unavailability" checked={flags.unavailabilityEnabled} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, unavailabilityEnabled: v }}))} />
+        <Checkbox label="Employees can edit their unavailability" checked={flags.employeeEditUnavailability} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, employeeEditUnavailability: v }}))} />
+        <Checkbox label="Show Time-off chips on Schedule" checked={flags.showTimeOffOnSchedule} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, showTimeOffOnSchedule: v }}))} />
+        <Checkbox label="Swap requires manager approval" checked={flags.requireManagerApproval} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, requireManagerApproval: v }}))} />
+        <Checkbox label="Allow cross-position swaps" checked={flags.allowCrossPosition} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, allowCrossPosition: v }}))}/>
+        <Select label="Work week starts on" value={flags.weekStartsOn} onChange={(v)=>{ const n = Number(v); setData(d=> ({...d, feature_flags: { ...d.feature_flags, weekStartsOn: n }})); setWeekStart(s=> fmtDate(startOfWeek(s, n))); }} options={WEEK_LABELS.map((w,i)=>({value:i,label:w}))} />
+      </div>
+    </div>
+    <div>
+      <div className="font-semibold">Qualifications</div>
+      <div className="mt-2">
+        <QualificationsEditor
+          users={users}
+          positions={positions}
+          data={data}
+          onToggle={(userId, positionId, enabled) => {
+            setData(d => {
+              const exists = (d.user_qualifications||[]).some(q=> q.user_id===userId && q.position_id===positionId);
+              let next = d.user_qualifications||[];
+              if (enabled && !exists) next = [...next, { id: uid(), user_id: userId, position_id: positionId }];
+              if (!enabled && exists) next = next.filter(q=> !(q.user_id===userId && q.position_id===positionId));
+              return { ...d, user_qualifications: next };
+            });
+          }}
+        />
+      </div>
+    </div>
+  </div>
+</Section>      )} hint="If off, all unavailability UI is hidden."/>
                 <Checkbox label="Employees can edit their unavailability" checked={flags.employeeEditUnavailability} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, employeeEditUnavailability: v }}))} hint="Admin can still view and edit in Unavailability tab."/>
                 <Checkbox label="Show Timeâ€‘off chips on Schedule" checked={flags.showTimeOffOnSchedule} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, showTimeOffOnSchedule: v }}))} hint="Shows pending/approved ranges in the grid."/>
                 <Checkbox label="Newsfeed" checked={flags.newsfeedEnabled} onChange={(v)=> setData(d=> ({...d, feature_flags: { ...d.feature_flags, newsfeedEnabled: v }}))}/>
@@ -1430,7 +1490,6 @@ function InnerApp(props) {
             </div>
 
             <SelfTestsPanel />
-          </div>
         
             <div>
               <div className="font-semibold">Qualifications</div>
@@ -1449,9 +1508,19 @@ function InnerApp(props) {
                     });
                   }}
                 />
+            </div>
               </div>
-            </div></Section>
+            </div>
+          </div>
+        </Section>
       )}
+        open={editModal.open}
+        onClose={() => setEditModal({ open: false, shift: null })}
+        shift={editModal.shift}
+        users={users}
+        positions={positions}
+        onSave={updateShift}
+      />
 
       <ShiftEditorModal
         open={shiftModal.open}
@@ -2466,3 +2535,71 @@ function QualificationsEditor({ users, positions, data, onToggle }) {
     </div>
   );
 }
+
+
+
+function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
+  if (!shift) return null;
+  const toHHMM = (dt) => { const d = safeDate(dt); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return `${h}:${m}`; };
+  const [userId, setUserId] = useState(shift.user_id);
+  const [positionId, setPositionId] = useState(shift.position_id);
+  const [day, setDay] = useState(safeDate(shift.starts_at));
+  const [start, setStart] = useState(toHHMM(shift.starts_at));
+  const [end, setEnd] = useState(toHHMM(shift.ends_at));
+  const [breakMin, setBreakMin] = useState(shift.break_min || 0);
+  const [notes, setNotes] = useState(shift.notes || '');
+
+  useEffect(() => {
+    if (shift) {
+      setUserId(shift.user_id);
+      setPositionId(shift.position_id);
+      setDay(safeDate(shift.starts_at));
+      setStart(toHHMM(shift.starts_at));
+      setEnd(toHHMM(shift.ends_at));
+      setBreakMin(shift.break_min || 0);
+      setNotes(shift.notes || '');
+    }
+  }, [shift, open]);
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit shift"
+      footer={
+        <>
+          <button className="rounded-xl border px-3 py-2 text-sm" onClick={onClose}>Cancel</button>
+          <button className="rounded-xl border bg-black px-3 py-2 text-sm text-white" onClick={() => { if (!userId || !positionId) return alert('Pick employee & position'); onSave({ id: shift.id, user_id: userId, position_id: positionId, day, start_hhmm: start, end_hhmm: end, break_min: breakMin, notes }); onClose(); }}>Save changes</button>
+        </>
+      }
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        <Select label="Employee" value={userId} onChange={setUserId} options={users.map((u) => ({ value: u.id, label: u.full_name }))} />
+        <Select label="Position" value={positionId} onChange={setPositionId} options={positions.map((p) => ({ value: p.id, label: p.name }))} />
+        <label className="grid gap-1 text-sm">
+          <span className="text-gray-600">Day</span>
+          <input type="date" value={fmtDate(day)} onChange={(e) => setDay(safeDate(e.target.value))} className="rounded-xl border px-3 py-2" />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-gray-600">Start time</span>
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-xl border px-3 py-2" />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-gray-600">End time</span>
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-xl border px-3 py-2" />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-gray-600">Break (minutes)</span>
+          <input type="number" min={0} step={5} value={breakMin} onChange={(e) => setBreakMin(Number(e.target.value))} className="rounded-xl border px-3 py-2" />
+        </label>
+        <label className="md:col-span-2 grid gap-1 text-sm">
+          <span className="text-gray-600">Notes (optional)</span>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="rounded-xl border px-3 py-2" />
+        </label>
+      </div>
+    </Modal>
+  );
+}
+
+
+
