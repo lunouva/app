@@ -15,7 +15,21 @@ class ErrorBoundary extends React.Component {
         <div style={{ padding: 16, fontFamily: 'system-ui' }}>
           <h2 style={{ fontWeight: 800, marginBottom: 8 }}>Something went wrong</h2>
           <pre style={{ whiteSpace: 'pre-wrap', background: '#fff7ed', border: '1px solid #fed7aa', padding: 12, borderRadius: 12 }}>{msg}</pre>
-          <p style={{ color: '#475569', marginTop: 8 }}>Tip: clear demo storage (localStorage) then reload.</p>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem('shiftmate_v2');
+                  localStorage.removeItem('shiftmate_current_user');
+                  localStorage.removeItem('shiftmate_schedule_view');
+                  location.reload();
+                } catch (e) { console.warn(e); }
+              }}
+              style={{ padding: '8px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#111827', color: '#fff' }}
+            >
+              Clear Storage & Reload
+            </button>
+          </div>
         </div>
       );
     }
@@ -704,6 +718,21 @@ function WeekGrid(props) {
     </div>
   );
 }
+
+// One-time storage reset to survive schema/UI changes without a blank page
+try {
+  if (typeof window !== 'undefined') {
+    const KEY = 'shiftmate_reset_once_2025_11_10';
+    const forced = new URLSearchParams(window.location.search).get('reset') === '1';
+    if (forced || !localStorage.getItem(KEY)) {
+      localStorage.removeItem('shiftmate_v2');
+      localStorage.removeItem('shiftmate_current_user');
+      localStorage.removeItem('shiftmate_schedule_view');
+      localStorage.setItem(KEY, '1');
+      // first render will now use cleared storage
+    }
+  }
+} catch {}
 
 // ---------- main app ----------
 export default function App() {
