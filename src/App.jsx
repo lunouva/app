@@ -95,6 +95,14 @@ const roleColor = (role = "") => ({
   employee: "#64748b" // slate-500
 }[role] || "#6b7280");
 
+// HH:MM from Date (local)
+const toHHMM = (dt) => {
+  const d = safeDate(dt);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
 
 const minutes = (hhmm) => {
   const [h, m] = String(hhmm || "00:00").split(":").map((n) => Number(n) || 0);
@@ -377,6 +385,9 @@ function WeekGrid({
   onProposeTrade,
   allowCrossPosition = false,
   isQualified = () => true,
+  compact = false,
+  onDuplicate,
+  onMoveShift,
 }) {
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
   const userNameById = useMemo(() => Object.fromEntries((employees||[]).map(u => [u.id, u.full_name])), [employees]);
@@ -397,16 +408,20 @@ function WeekGrid({
     return m;
   }, [employees, timeOffList]);
 
+  const cellPad = compact ? 'p-1 min-h-[60px]' : 'p-2 min-h-24';
+  const bubblePad = compact ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
+
   return (
     <div className="overflow-x-auto">
       <div className="w-full">
-        <div className="grid grid-cols-[200px_repeat(7,1fr)]">
-          <div className="sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold">Employee</div>
+        <div className="grid grid-cols-[200px_repeat(7,1fr)_120px]">
+          <div className="sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm">Employee</div>
           {weekDays.map((d) => (
-            <div key={String(d)} className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold">
+            <div key={String(d)} className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm">
               {fmtDateLabel(d)}
             </div>
           ))}
+          <div className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm">Total</div>
 
           {employees.map((emp) => (
             <React.Fragment key={emp.id}>
@@ -441,7 +456,15 @@ function WeekGrid({
                 );
 
                 return (
-                  <div key={emp.id + dayKey} className="border-l border-t p-2 min-h-24">
+                  <div
+                    key={emp.id + dayKey}
+                    className={`border-l border-t ${cellPad}`}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                    onDrop={(e) => {
+                      const id = e.dataTransfer.getData('text/plain');
+                      if (id) onMoveShift?.(id, emp.id, day);
+                    }}
+                  >
                     <div className="space-y-2">
                       {showTimeOffChips &&
                         dayTimeOff.map((r) => (
@@ -473,7 +496,9 @@ function WeekGrid({
                       {dayShifts.map((s) => (
                         <div
                           key={s.id}
-                          className="group relative rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-sm transition hover:border-gray-300 hover:shadow-md"
+                          draggable
+                          onDragStart={(e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; }}
+                          className={`group relative rounded-xl border border-gray-200 bg-white ${compact ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm'} shadow-sm transition hover:border-gray-300 hover:shadow-md`}
                           style={{ borderLeft: `4px solid ${colorForPosition(s.position_id)}` }}
                           onClick={() => {
                             if (showTileActions && currentUserId && s.user_id === currentUserId) {
@@ -498,6 +523,21 @@ function WeekGrid({
                                   </svg>
                                 </button>
                               )}
+                              {onEdit && onDelete && (
+                                <span className="text-gray-300">|</span>
+                              )}
+                              {onEdit && (
+                                <button
+                                  className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
+                                  onClick={(e) => { e.stopPropagation(); onDuplicate?.(s.id); }}
+                                  aria-label="Duplicate shift"
+                                  title="Duplicate"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-gray-700">
+                                    <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h6A1.5 1.5 0 0 1 16 4.5v6A1.5 1.5 0 0 1 14.5 12h-6A1.5 1.5 0 0 1 7 10.5v-6Zm-3 3A1.5 1.5 0 0 1 5.5 6h.5v7a2 2 0 0 0 2 2H15v.5A1.5 1.5 0 0 1 13.5 17h-6A1.5 1.5 0 0 1 6 15.5v-6Z"/>
+                                  </svg>
+                                </button>
+                              )}
                               {onDelete && (
                                 <button
                                   className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
@@ -512,6 +552,25 @@ function WeekGrid({
                               )}
                             </div>
                           </div>
+                          {/* Mobile overflow menu trigger */}
+                          <button
+                            className="absolute right-1 top-1 rounded p-1 md:hidden"
+                            onClick={(e) => { e.stopPropagation(); setOpenShiftMenu((v) => (v === s.id ? null : s.id)); }}
+                            aria-label="More actions"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-gray-600">
+                              <path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+                            </svg>
+                          </button>
+
+                          {/* Conflict indicators (day-level) */}
+                          {(dayUnav.length > 0 || dayTimeOff.length > 0) && (
+                            <div className="absolute left-1 top-1 flex gap-1 text-[10px]">
+                              {dayUnav.length > 0 && <span className="rounded bg-red-100 px-1 text-red-700">UA</span>}
+                              {dayTimeOff.length > 0 && <span className="rounded bg-amber-100 px-1 text-amber-700">TO</span>}
+                            </div>
+                          )}
+
                           <div className="mt-1">
                             <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
                               <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorForPosition(s.position_id) }} />
@@ -526,8 +585,23 @@ function WeekGrid({
                             </div>
                           )}
 
+                          {/* Mobile overflow menu */}
+                          {openShiftMenu === s.id && (
+                            <div className="absolute right-1 top-6 z-20 rounded-lg border bg-white p-1 text-xs shadow md:hidden">
+                              {onEdit && (
+                                <button className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); onEdit(s); setOpenShiftMenu(null); }}>Edit</button>
+                              )}
+                              {onDuplicate && (
+                                <button className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); setOpenShiftMenu(null); }}>Duplicate</button>
+                              )}
+                              {onDelete && (
+                                <button className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); onDelete(s.id); setOpenShiftMenu(null); }}>Delete</button>
+                              )}
+                            </div>
+                          )}
+
                           {showTileActions && currentUserId && s.user_id === currentUserId && openShiftMenu === s.id && (
-                            <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow">
+                            <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow hidden md:block">
                               <button
                                 className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
                                 onClick={(e) => { e.stopPropagation(); onOfferGiveaway?.(s.id); setOpenShiftMenu(null); }}
@@ -573,8 +647,37 @@ function WeekGrid({
                   </div>
                 );
               })}
+              <div className="border-l border-t p-2 text-right font-semibold">
+                {(() => {
+                  const total = (shifts || [])
+                    .filter((s) => s.user_id === emp.id && weekDays.some((d) => fmtDateLocal(d) === fmtDateLocal(s.starts_at)))
+                    .reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_min), 0);
+                  return total.toFixed(2) + ' h';
+                })()}
+              </div>
             </React.Fragment>
           ))}
+
+          {/* Totals row */}
+          <div className="sticky left-0 z-10 border-t bg-gray-50 p-2 font-semibold">Totals</div>
+          {weekDays.map((d) => (
+            <div key={'totals'+String(d)} className="border-l border-t p-2 text-right font-semibold">
+              {(() => {
+                const key = fmtDateLocal(d);
+                const total = (shifts || [])
+                  .filter((s) => fmtDateLocal(s.starts_at) === key)
+                  .reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_min), 0);
+                return total.toFixed(2) + ' h';
+              })()}
+            </div>
+          ))}
+          <div className="border-l border-t p-2 text-right font-semibold">
+            {(() => {
+              const total = (shifts || [])
+                .reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_min), 0);
+              return total.toFixed(2) + ' h';
+            })()}
+          </div>
         </div>
       </div>
     </div>
@@ -591,6 +694,7 @@ export default function App() {
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
 
   const [shiftModal, setShiftModal] = useState({ open: false, preUserId: null, preDay: null });
+  const [compact, setCompact] = useState(false);
 
   const location = data.locations.find((l) => l.id === locationId) || data.locations[0];
   const users = data.users.filter((u) => u.location_id === location.id && u.is_active);
@@ -751,6 +855,23 @@ export default function App() {
       ...s,
       shifts: s.shifts.map((sh) => sh.id === id ? { ...sh, user_id, position_id, starts_at: starts.toISOString(), ends_at: ends.toISOString(), break_min: Number(break_min||0), notes: notes||'' } : sh)
     }));
+  };
+  const duplicateShift = (shiftId) => {
+    if (!schedule) return;
+    const s = schedule.shifts.find((x) => x.id === shiftId);
+    if (!s) return;
+    const day = fmtDateLocal(s.starts_at);
+    const start_hhmm = toHHMM(s.starts_at);
+    const end_hhmm = toHHMM(s.ends_at);
+    createShift({ user_id: s.user_id, position_id: s.position_id, day, start_hhmm, end_hhmm, break_min: s.break_min, notes: s.notes });
+  };
+  const moveShift = (shiftId, targetUserId, day) => {
+    if (!schedule) return;
+    const s = schedule.shifts.find((x) => x.id === shiftId);
+    if (!s) return;
+    const start_hhmm = toHHMM(s.starts_at);
+    const end_hhmm = toHHMM(s.ends_at);
+    updateShift({ id: s.id, user_id: targetUserId, position_id: s.position_id, day, start_hhmm, end_hhmm, break_min: s.break_min, notes: s.notes });
   };
   const publish = () => { if (!schedule) return; upsertSchedule((s) => ({ ...s, status: s.status === "draft" ? "published" : "draft" })); };
 
@@ -1170,6 +1291,10 @@ function InnerApp(props) {
             <button className="rounded-lg border px-2 py-1" title="Jump to current week" onClick={()=> setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}>Today</button>
             <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
           </div>
+          <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
+            <input type="checkbox" checked={compact} onChange={(e)=> setCompact(e.target.checked)} />
+            Compact
+          </label>
           <div className="rounded-xl border px-3 py-2 text-sm">{currentUser.full_name} <span className="text-gray-500">({currentUser.role})</span></div>
           <button className="rounded-xl border px-3 py-2 text-sm shadow-sm" onClick={logout}>Logout</button>
         </Toolbar>
@@ -1225,6 +1350,9 @@ function InnerApp(props) {
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
+              compact={compact}
+              onDuplicate={duplicateShift}
+              onMoveShift={moveShift}
             />
           )}
 
@@ -2620,6 +2748,8 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
+
+
 
 
 
