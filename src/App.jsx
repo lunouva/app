@@ -69,6 +69,32 @@ const fmtDateLabel = (d) => safeDate(d).toLocaleDateString([], { weekday: "short
 const uid = () => Math.random().toString(36).slice(2, 10);
 const today = () => new Date();
 
+// Deterministic color accents by position id
+const POSITION_COLORS = [
+  "#3b82f6", // blue-500
+  "#10b981", // emerald-500
+  "#f59e0b", // amber-500
+  "#ef4444", // red-500
+  "#8b5cf6", // violet-500
+  "#06b6d4", // cyan-500
+  "#84cc16", // lime-500
+  "#e879f9", // fuchsia-400
+  "#22d3ee", // sky-400
+  "#fb7185", // rose-400
+];
+const colorForPosition = (positionId = "") => {
+  let hash = 0;
+  const s = String(positionId);
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return POSITION_COLORS[hash % POSITION_COLORS.length];
+};
+
+const roleColor = (role = "") => ({
+  owner: "#e11d48",   // rose-600
+  manager: "#0ea5e9", // sky-500
+  employee: "#64748b" // slate-500
+}[role] || "#6b7280");
+
 
 const minutes = (hhmm) => {
   const [h, m] = String(hhmm || "00:00").split(":").map((n) => Number(n) || 0);
@@ -375,9 +401,9 @@ function WeekGrid({
     <div className="overflow-x-auto">
       <div className="w-full">
         <div className="grid grid-cols-[200px_repeat(7,1fr)]">
-          <div className="sticky left-0 z-10 bg-gray-50 p-2 font-semibold">Employee</div>
+          <div className="sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold">Employee</div>
           {weekDays.map((d) => (
-            <div key={String(d)} className="p-2 text-center font-semibold bg-gray-50">
+            <div key={String(d)} className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold">
               {fmtDateLabel(d)}
             </div>
           ))}
@@ -386,6 +412,17 @@ function WeekGrid({
             <React.Fragment key={emp.id}>
               <div className="sticky left-0 z-10 border-t bg-white p-2 font-medium">
                 {emp.full_name}
+                <span
+                  className="ml-2 align-middle text-[11px]"
+                  style={{
+                    border: `1px solid ${roleColor(emp.role)}`,
+                    color: roleColor(emp.role),
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
+                  {emp.role}
+                </span>
               </div>
 
               {weekDays.map((day) => {
@@ -437,6 +474,7 @@ function WeekGrid({
                         <div
                           key={s.id}
                           className="group relative rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-sm transition hover:border-gray-300 hover:shadow-md"
+                          style={{ borderLeft: `4px solid ${colorForPosition(s.position_id)}` }}
                           onClick={() => {
                             if (showTileActions && currentUserId && s.user_id === currentUserId) {
                               setOpenShiftMenu((v) => (v === s.id ? null : s.id));
@@ -449,19 +487,34 @@ function WeekGrid({
                             </div>
                             <div className="absolute right-1 top-1 hidden gap-1 md:flex md:opacity-0 md:transition md:duration-150 md:group-hover:opacity-100">
                               {onEdit && (
-                                <button className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onEdit(s); }} aria-label="Edit shift">
-                                  edit
+                                <button
+                                  className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
+                                  onClick={(e) => { e.stopPropagation(); onEdit(s); }}
+                                  aria-label="Edit shift"
+                                  title="Edit"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-gray-700">
+                                    <path d="M12.316 2.434a1.5 1.5 0 0 1 2.122 0l3.128 3.128a1.5 1.5 0 0 1 0 2.122l-9.17 9.17a2 2 0 0 1-1.106.56l-3.89.557a.75.75 0 0 1-.852-.852l.558-3.89a2 2 0 0 1 .56-1.106l9.172-9.17Zm1.414 1.414L6.56 11.018a.5.5 0 0 0-.14.276l-.29 2.023 2.023-.29a.5.5 0 0 0 .276-.14l7.168-7.168-1.867-1.867Z"/>
+                                  </svg>
                                 </button>
                               )}
                               {onDelete && (
-                                <button className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }} aria-label="Delete shift">
-                                  delete
+                                <button
+                                  className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
+                                  onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                                  aria-label="Delete shift"
+                                  title="Delete"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-gray-700">
+                                    <path fillRule="evenodd" d="M8.75 2A1.75 1.75 0 0 0 7 3.75V4H3.5a.75.75 0 0 0 0 1.5h.548l.862 10.341A2.25 2.25 0 0 0 7.154 18h5.692a2.25 2.25 0 0 0 2.244-2.159L15.952 5.5H16.5a.75.75 0 0 0 0-1.5H13v-.25A1.75 1.75 0 0 0 11.25 2h-2.5Zm1.75 2h-2.5v.25H10.5V4Zm-3.75 3a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7A.75.75 0 0 1 6.75 7Zm6.5 0a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7a.75.75 0 0 1 .75-.75Z" clipRule="evenodd"/>
+                                  </svg>
                                 </button>
                               )}
                             </div>
                           </div>
                           <div className="mt-1">
                             <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+                              <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorForPosition(s.position_id) }} />
                               {positionsById[s.position_id]?.name || "?"}
                             </span>
                           </div>
