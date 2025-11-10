@@ -1,7 +1,27 @@
 ﻿import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
 
 
-const PrintCSS = () => (
+
+// Error boundary to avoid blank screen and show runtime errors
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { try { console.error('App error:', error, info); } catch(_) {} }
+  render() {
+    if (this.state.error) {
+      const err = this.state.error;
+      const msg = String(err && (err.stack || err.message || err));
+      return (
+        <div style={{ padding: 16, fontFamily: 'system-ui' }}>
+          <h2 style={{ fontWeight: 800, marginBottom: 8 }}>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', background: '#fff7ed', border: '1px solid #fed7aa', padding: 12, borderRadius: 12 }}>{msg}</pre>
+          <p style={{ color: '#475569', marginTop: 8 }}>Tip: clear demo storage (localStorage) then reload.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}const PrintCSS = () => (
   <style>{` ... `}</style>
 );
 
@@ -967,7 +987,8 @@ export default function App() {
   const addEmployee = (payload) => setData((d) => ({ ...d, users: [...d.users, { id: uid(), location_id: (d.locations[0]?.id||'loc1'), role: payload.role||'employee', is_active: true, password: 'demo', attachments: payload.attachments||[], ...payload }] }));
 
   return (
-    <AuthProvider data={data} setData={setData}>
+    <ErrorBoundary>
+      <AuthProvider data={data} setData={setData}>
       <InnerApp
         data={data}
         setData={setData}
@@ -1011,6 +1032,7 @@ export default function App() {
         sendMessage={sendMessage}
       />
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
@@ -2748,6 +2770,10 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
+
+
+
+
 
 
 
