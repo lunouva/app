@@ -409,7 +409,7 @@ function WeekGrid(props) {
     onDuplicate,
     onMoveShift,
   } = props || {};
-  const isDense = !!(props && props.dense);
+  const isDense = !!(props && (props.useDense ?? props.dense));
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
   const userNameById = useMemo(() => Object.fromEntries((employees||[]).map(u => [u.id, u.full_name])), [employees]);
   const coworkerShifts = useMemo(() => (currentUserId ? (shifts||[]).filter(sh => sh.user_id !== currentUserId) : []), [shifts, currentUserId]);
@@ -1373,7 +1373,7 @@ function InnerApp(props) {
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
-              dense={dense}
+              useDense={dense}
               onDuplicate={duplicateShift}
               onMoveShift={moveShift}
             />
@@ -2771,6 +2771,7 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
+
 
 
 
