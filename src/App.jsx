@@ -1077,6 +1077,7 @@ function InnerApp(props) {
     addPost, addTask, setTaskStatus, deleteTask, addTemplate, deleteTemplate, sendMessage,
     dense, setDense,
   } = props;
+  const safeDense = !!dense;
   const { currentUser, logout } = useAuth();
   // Schedule view toggle (persisted): 'my' or 'full'
   const SCHEDULE_VIEW_KEY = 'shiftmate_schedule_view';
@@ -1350,7 +1351,7 @@ function InnerApp(props) {
             <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
           </div>
           <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
-            <input type="checkbox" checked={dense} onChange={(e)=> setDense(e.target.checked)} />
+            <input type="checkbox" checked={safeDense} onChange={(e)=> setDense && setDense(e.target.checked)} />
             Compact
           </label>
           <div className="rounded-xl border px-3 py-2 text-sm">{currentUser.full_name} <span className="text-gray-500">({currentUser.role})</span></div>
@@ -1408,7 +1409,7 @@ function InnerApp(props) {
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
-              useDense={dense}
+              useDense={safeDense}
               onDuplicate={duplicateShift}
               onMoveShift={moveShift}
             />
