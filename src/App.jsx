@@ -906,7 +906,8 @@ export default function App() {
       shifts: s.shifts.map((sh) => sh.id === id ? { ...sh, user_id, position_id, starts_at: starts.toISOString(), ends_at: ends.toISOString(), break_min: Number(break_min||0), notes: notes||'' } : sh)
     }));
   };
-  const duplicateShift = (shiftId) => {
+  // Rename to avoid any chance of free-global lookups in prod bundles
+  const handleDuplicateShift = (shiftId) => {
     if (!schedule) return;
     const s = schedule.shifts.find((x) => x.id === shiftId);
     if (!s) return;
@@ -1410,7 +1411,7 @@ function InnerApp(props) {
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
               useDense={safeDense}
-              onDuplicate={duplicateShift}
+              onDuplicate={handleDuplicateShift}
               onMoveShift={moveShift}
             />
           )}
