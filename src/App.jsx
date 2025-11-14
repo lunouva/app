@@ -1038,6 +1038,8 @@ export default function App() {
         createShift={createShift}
         updateShift={updateShift}
         deleteShift={deleteShift}
+        handleDuplicateShift={handleDuplicateShift}
+        moveShift={moveShift}
         publish={publish}
         totalHoursByUser={totalHoursByUser}
         totalHoursByDay={totalHoursByDay}
@@ -1073,6 +1075,7 @@ function InnerApp(props) {
   const {
     data, setData, tab, setTab, locationId, setLocationId, weekStart, setWeekStart,
     users, positions, positionsById, weekDays, schedule, ensureSchedule, createShift, updateShift, deleteShift,
+    handleDuplicateShift, moveShift,
     publish, totalHoursByUser, totalHoursByDay, copyCsv, exportCsv, resetDemo, shiftModal, setShiftModal,
     addEmployee, addPosition, createTimeOff, setTimeOffStatus, addUnavailability, updateUnavailability, deleteUnavailability, unavailability,
     addPost, addTask, setTaskStatus, deleteTask, addTemplate, deleteTemplate, sendMessage,
