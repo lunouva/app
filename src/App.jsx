@@ -271,6 +271,7 @@ const seedData = () => {
     swap_audit_logs: [], // {id, swap_id, kind:'request'|'offer', actor_id, action, meta, created_at}
     time_off_requests: [],
     unavailability: [], // {id, user_id, kind:'weekly'|'date', weekday?, date?, start_hhmm, end_hhmm, notes}
+    availability_change_requests: [], // {id, user_id, pattern, note, created_at}
     news_posts: [], // {id, user_id, body, created_at}
     tasks: [], // {id, title, assigned_to, due_date, status:'open'|'done', created_by}
     task_templates: [], // {id, title}
@@ -286,6 +287,8 @@ const loadData = () => {
     if (!raw) return seedData();
     const parsed = JSON.parse(raw);
     if (!parsed.unavailability) parsed.unavailability = [];
+    if (!parsed.time_off_requests) parsed.time_off_requests = [];
+    if (!parsed.availability_change_requests) parsed.availability_change_requests = [];
     if (!parsed.news_posts) parsed.news_posts = [];
     if (!parsed.tasks) parsed.tasks = [];
     if (!parsed.task_templates) parsed.task_templates = [];
@@ -949,18 +952,125 @@ export default function App() {
     return matches;
   };
 
-  const addUnavailability = (ua) => {
+  const addUnavailability = async (ua) => {
     const startM = minutes(ua.start_hhmm), endM = minutes(ua.end_hhmm);
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
-    setData((d) => ({ ...d, unavailability: [{ id: uid(), ...ua }, ...d.unavailability] }));
+
+    const useApi = isScheduleApiEnabled();
+    // For now, only weekly rows are persisted to the backend.
+    if (useApi && ua.kind === 'weekly') {
+      try {
+        const payload = {
+          user_id: ua.user_id,
+          weekday: ua.weekday,
+          start_hhmm: ua.start_hhmm,
+          end_hhmm: ua.end_hhmm,
+          notes: ua.notes || '',
+        };
+        const res = await scheduleApiRequest('/api/availability', {
+          method: 'POST',
+          body: payload,
+        });
+        const row = res && res.row;
+        if (row) {
+          const mapped = {
+            id: row.id,
+            user_id: row.user_id,
+            kind: 'weekly',
+            weekday: row.weekday,
+            start_hhmm: row.start_hhmm,
+            end_hhmm: row.end_hhmm,
+            notes: row.notes || '',
+          };
+          setData((d) => ({
+            ...d,
+            unavailability: [mapped, ...(d.unavailability || [])],
+          }));
+          return;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('addUnavailability API failed, falling back to local', err);
+      }
+    }
+
+    setData((d) => ({
+      ...d,
+      unavailability: [{ id: uid(), ...ua }, ...(d.unavailability || [])],
+    }));
   };
-  const updateUnavailability = (ua) => setData((d)=> ({ ...d, unavailability: d.unavailability.map(x => x.id===ua.id ? { ...x, ...ua } : x) }));
-  const deleteUnavailability = (id) => setData((d) => ({ ...d, unavailability: d.unavailability.filter((x) => x.id !== id) }));
+
+  const updateUnavailability = async (ua) => {
+    const useApi = isScheduleApiEnabled();
+    if (useApi && ua.kind === 'weekly' && ua.id) {
+      try {
+        const payload = {
+          weekday: ua.weekday,
+          start_hhmm: ua.start_hhmm,
+          end_hhmm: ua.end_hhmm,
+          notes: ua.notes || '',
+        };
+        const res = await scheduleApiRequest(`/api/availability/${encodeURIComponent(ua.id)}`, {
+          method: 'PATCH',
+          body: payload,
+        });
+        const row = res && res.row;
+        if (row) {
+          const mapped = {
+            id: row.id,
+            user_id: row.user_id,
+            kind: 'weekly',
+            weekday: row.weekday,
+            start_hhmm: row.start_hhmm,
+            end_hhmm: row.end_hhmm,
+            notes: row.notes || '',
+          };
+          setData((d) => ({
+            ...d,
+            unavailability: (d.unavailability || []).map((x) =>
+              x.id === ua.id ? mapped : x
+            ),
+          }));
+          return;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('updateUnavailability API failed, falling back to local', err);
+      }
+    }
+
+    setData((d) => ({
+      ...d,
+      unavailability: (d.unavailability || []).map((x) =>
+        x.id === ua.id ? { ...x, ...ua } : x
+      ),
+    }));
+  };
+
+  const deleteUnavailability = async (id) => {
+    const useApi = isScheduleApiEnabled();
+    if (useApi && id) {
+      try {
+        await scheduleApiRequest(`/api/availability/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('deleteUnavailability API failed, falling back to local', err);
+      }
+    }
+
+    setData((d) => ({
+      ...d,
+      unavailability: (d.unavailability || []).filter((x) => x.id !== id),
+    }));
+  };
 
   // NOTE: we cannot safely destructure useAuth here because App is *outside* the provider.
   // Use a null-guarded lookup for the current user id when creating quick tasks.
   const auth = useAuth();
   const currentUserId = auth?.currentUser?.id || null;
+  const currentUserRole = auth?.currentUser?.role || 'employee';
 
   const createShift = async ({ user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes, quickTaskTitle, quickTaskTemplateId }) => {
     // Basic time validation
@@ -1202,12 +1312,104 @@ export default function App() {
     localStorage.removeItem("shiftmate_current_user");
   };
 
-  const createTimeOff = ({ user_id, date_from, date_to, notes }) => {
-    const req = { id: uid(), user_id, date_from, date_to, notes: notes || "", status: "pending", created_at: new Date().toISOString() };
-    setData((d) => ({ ...d, time_off_requests: [req, ...d.time_off_requests] }));
+  const createTimeOff = async ({ user_id, date_from, date_to, notes }) => {
+    const useApi = isScheduleApiEnabled();
+    if (useApi) {
+      try {
+        const body = {
+          date_from,
+          date_to,
+          notes: notes || '',
+        };
+        // Managers/owners can create on behalf of another user.
+        if (
+          user_id &&
+          currentUserId &&
+          user_id !== currentUserId &&
+          (currentUserRole === 'manager' || currentUserRole === 'owner')
+        ) {
+          body.user_id = user_id;
+        }
+        const res = await scheduleApiRequest('/api/time-off', {
+          method: 'POST',
+          body,
+        });
+        const row = res && res.request;
+        if (row) {
+          setData((d) => ({
+            ...d,
+            time_off_requests: [row, ...(d.time_off_requests || [])],
+          }));
+          return;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('createTimeOff API failed, falling back to local', err);
+      }
+    }
+
+    const req = {
+      id: uid(),
+      user_id,
+      date_from,
+      date_to,
+      notes: notes || '',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    setData((d) => ({
+      ...d,
+      time_off_requests: [req, ...(d.time_off_requests || [])],
+    }));
   };
-  const setTimeOffStatus = (id, status) => {
-    setData((d) => ({ ...d, time_off_requests: d.time_off_requests.map((r) => (r.id === id ? { ...r, status } : r)) }));
+
+  const setTimeOffStatus = async (id, status) => {
+    const useApi = isScheduleApiEnabled();
+    if (useApi) {
+      try {
+        const res = await scheduleApiRequest(`/api/time-off/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: { status },
+        });
+        const row = res && res.request;
+        if (row) {
+          setData((d) => ({
+            ...d,
+            time_off_requests: (d.time_off_requests || []).map((r) =>
+              r.id === id ? row : r
+            ),
+          }));
+          return;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('setTimeOffStatus API failed, falling back to local', err);
+      }
+    }
+
+    setData((d) => ({
+      ...d,
+      time_off_requests: (d.time_off_requests || []).map((r) =>
+        r.id === id ? { ...r, status } : r
+      ),
+    }));
+  };
+
+  const addAvailabilityChangeRequest = (user_id, pattern, note) => {
+    const trimmedPattern = String(pattern || '').trim();
+    const trimmedNote = String(note || '').trim();
+    if (!trimmedPattern && !trimmedNote) return;
+    const row = {
+      id: uid(),
+      user_id,
+      pattern: trimmedPattern,
+      note: trimmedNote,
+      created_at: new Date().toISOString(),
+    };
+    setData((d) => ({
+      ...d,
+      availability_change_requests: [row, ...(d.availability_change_requests || [])],
+    }));
   };
 
   // Newsfeed
@@ -1275,6 +1477,7 @@ export default function App() {
         addPosition={(name) => setData((d) => ({ ...d, positions: [...d.positions, { id: uid(), location_id: location.id, name }] }))}
         createTimeOff={createTimeOff}
         setTimeOffStatus={setTimeOffStatus}
+        addAvailabilityChangeRequest={addAvailabilityChangeRequest}
         addUnavailability={addUnavailability}
         updateUnavailability={updateUnavailability}
         deleteUnavailability={deleteUnavailability}
@@ -1300,7 +1503,7 @@ function InnerApp(props) {
     users, positions, positionsById, weekDays, schedule, ensureSchedule, createShift, updateShift, deleteShift,
     handleDuplicateShift, moveShift,
     publish, totalHoursByUser, totalHoursByDay, copyCsv, exportCsv, resetDemo, shiftModal, setShiftModal,
-    addEmployee, addPosition, createTimeOff, setTimeOffStatus, addUnavailability, updateUnavailability, deleteUnavailability, unavailability,
+    addEmployee, addPosition, createTimeOff, setTimeOffStatus, addAvailabilityChangeRequest, addUnavailability, updateUnavailability, deleteUnavailability, unavailability,
     addPost, addTask, setTaskStatus, deleteTask, addTemplate, deleteTemplate, sendMessage,
     dense, setDense,
   } = props;
@@ -1324,6 +1527,62 @@ function InnerApp(props) {
   const flags = data.feature_flags || defaultFlags();
   const isManager = (currentUser?.role || 'employee') !== "employee";
   const scopedUsers = users;
+
+  // Hydrate time-off requests from backend when auth + API are available.
+  useEffect(() => {
+    const useApi = isScheduleApiEnabled();
+    if (!useApi || !currentUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await scheduleApiRequest('/api/time-off');
+        if (!cancelled && res && Array.isArray(res.data)) {
+          setData((d) => ({ ...d, time_off_requests: res.data }));
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('time-off API error; keeping local state', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, setData]);
+
+  // Hydrate weekly availability/unavailability from backend.
+  useEffect(() => {
+    const useApi = isScheduleApiEnabled();
+    if (!useApi || !currentUser || !flags.unavailabilityEnabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (currentUser.role === 'employee') {
+          params.set('userId', currentUser.id);
+        }
+        const qs = params.toString();
+        const res = await scheduleApiRequest(`/api/availability${qs ? `?${qs}` : ''}`);
+        if (!cancelled && res && Array.isArray(res.data)) {
+          const rows = res.data.map((r) => ({
+            id: r.id,
+            user_id: r.user_id,
+            kind: 'weekly',
+            weekday: r.weekday,
+            start_hhmm: r.start_hhmm,
+            end_hhmm: r.end_hhmm,
+            notes: r.notes || '',
+          }));
+          setData((d) => ({ ...d, unavailability: rows }));
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('availability API error; keeping local state', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, currentUser?.role, flags.unavailabilityEnabled, setData]);
 
   const shiftWeek = (delta) => setWeekStart((s) => fmtDate(startOfWeek(addDays(s, delta * 7), flags.weekStartsOn)));
 
@@ -1724,7 +1983,11 @@ function InnerApp(props) {
 
       {!isManager && flags.unavailabilityEnabled && tab === "availability" && (
         <Section title="My Availability">
-          <EmployeeAvailabilityView currentUser={currentUser} list={unavailability} />
+          <EmployeeAvailabilityView
+            currentUser={currentUser}
+            list={unavailability}
+            onRequestChange={addAvailabilityChangeRequest}
+          />
         </Section>
       )}
 
@@ -1828,11 +2091,15 @@ function InnerApp(props) {
             const pendingSwaps = isManager
               ? (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length
               : (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length;
+            const pendingAvailability = (data.availability_change_requests || []).filter(r =>
+              isManager ? true : r.user_id === currentUser.id
+            ).length;
             return (
               <div>
                 <div className="mb-3 flex gap-2">
                   <TabBtn id="timeoff" tab={requestsSubTab} setTab={setRequestsSubTab} label={`Time Off (${pendingTO})`} />
                   <TabBtn id="swaps" tab={requestsSubTab} setTab={setRequestsSubTab} label={`Swaps (${pendingSwaps})`} />
+                  <TabBtn id="availability" tab={requestsSubTab} setTab={setRequestsSubTab} label={`Availability (${pendingAvailability})`} />
                 </div>
                 {requestsSubTab === 'timeoff' && (
                   isManager
@@ -1870,6 +2137,13 @@ function InnerApp(props) {
                       flags={flags}
                     />
                   )
+                )}
+                {requestsSubTab === 'availability' && (
+                  <AvailabilityChangeRequestsPanel
+                    users={users}
+                    currentUser={currentUser}
+                    requests={data.availability_change_requests || []}
+                  />
                 )}
               </div>
             );
@@ -2388,10 +2662,11 @@ function MyUnavailabilityEditor({ currentUser, list, onAdd, onUpdate, onDelete }
 }
 
 // Employee read-only availability with simple request form
-function EmployeeAvailabilityView({ currentUser, list }) {
+function EmployeeAvailabilityView({ currentUser, list, onRequestChange }) {
   const mine = useMemo(() => (list || []).filter(ua => ua.user_id === currentUser.id && ua.kind === 'weekly'), [list, currentUser?.id]);
   const [note, setNote] = useState('');
   const [pattern, setPattern] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
@@ -2419,7 +2694,22 @@ function EmployeeAvailabilityView({ currentUser, list }) {
             <span className="text-gray-600">Note</span>
             <textarea value={note} onChange={(e)=>setNote(e.target.value)} className="min-h-20 rounded-xl border px-3 py-2" />
           </label>
-          <button className="rounded-xl border px-3 py-2 text-sm" onClick={()=>{ alert('Availability change requested'); setNote(''); setPattern(''); }}>Submit request</button>
+          <button
+            className="rounded-xl border px-3 py-2 text-sm"
+            onClick={() => {
+              onRequestChange?.(currentUser.id, pattern, note);
+              setNote('');
+              setPattern('');
+              setSubmitted(true);
+            }}
+          >
+            Submit request
+          </button>
+          {submitted && (
+            <div className="text-xs text-green-700">
+              Request sent. Your manager will review and update your availability.
+            </div>
+          )}
           <div className="text-xs text-gray-600">Your manager will review and update canonical availability.</div>
         </div>
       </div>
@@ -2659,6 +2949,58 @@ function MessagesPanel({ users, currentUser, messages, onSend }) {
 }
 
 // ---------- Requests (Manager/Owner) ----------
+function AvailabilityChangeRequestsPanel({ users, currentUser, requests }) {
+  const byId = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+  const isManager = (currentUser?.role || 'employee') !== 'employee';
+  const locationId = currentUser?.location_id || null;
+
+  const visible = useMemo(() => {
+    const list = requests || [];
+    if (!isManager) {
+      return list.filter((r) => r.user_id === currentUser.id);
+    }
+    if (!locationId) return list;
+    const allowedUserIds = new Set(
+      users.filter((u) => u.location_id === locationId).map((u) => u.id)
+    );
+    return list.filter((r) => allowedUserIds.has(r.user_id));
+  }, [requests, isManager, currentUser?.id, locationId, users]);
+
+  if (!visible.length) {
+    return <div className="text-sm text-gray-600">No availability change requests yet.</div>;
+  }
+
+  return (
+    <ul className="divide-y rounded-2xl border">
+      {visible.map((r) => {
+        const u = byId[r.user_id];
+        return (
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+            <div>
+              <div className="font-medium">
+                {isManager && u ? u.full_name : 'Requested change'}
+              </div>
+              {r.pattern && (
+                <div className="text-xs text-gray-700">
+                  {r.pattern}
+                </div>
+              )}
+              {r.note && (
+                <div className="text-xs text-gray-600">
+                  {r.note}
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">
+              {safeDate(r.created_at).toLocaleString()}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function RequestsPanel({ users, list, onSetStatus }) {
   const byId = useMemo(()=> Object.fromEntries(users.map(u=>[u.id,u])), [users]);
   const pending = list.filter(r=> r.status==='pending');
