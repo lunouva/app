@@ -1944,13 +1944,36 @@ function InnerApp(props) {
         <Section
           title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
           right={
-            schedule ? (
-              <Pill>
-                Status: <span className={`ml-1 font-semibold ${schedule.status === "published" ? "text-green-700" : "text-amber-700"}`}>{schedule.status}</span>
-              </Pill>
-            ) : (
-              <Pill>Draft (no schedule yet)</Pill>
-            )
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-3">
+                {schedule ? (
+                  <Pill>
+                    Status: <span className={`ml-1 font-semibold ${schedule.status === "published" ? "text-green-700" : "text-amber-700"}`}>{schedule.status}</span>
+                  </Pill>
+                ) : (
+                  <Pill>Draft (no schedule yet)</Pill>
+                )}
+                <div className="inline-flex rounded-full border p-1 text-xs">
+                  <button
+                    className={`px-3 py-1 rounded-full ${scheduleView === 'my' ? 'bg-black text-white' : ''}`}
+                    onClick={() => setScheduleView('my')}
+                  >
+                    My Schedule
+                  </button>
+                  {canViewFullSchedule && (
+                    <button
+                      className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
+                      onClick={() => setScheduleView('full')}
+                    >
+                      Full Schedule
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                {scheduleView === 'my' ? 'Viewing: My Schedule' : 'Viewing: Full Schedule'}
+              </div>
+            </div>
           }
         >
           <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
@@ -1974,6 +1997,17 @@ function InnerApp(props) {
           </div>
           {scopedUsers.length === 0 ? (
             <div className="text-sm text-gray-600">Add employees first.</div>
+          ) : scheduleView === 'my' ? (
+            <MyShifts
+              currentUser={currentUser}
+              schedule={schedule}
+              weekDays={weekDays}
+              positionsById={positionsById}
+              users={users}
+              swapIndicators={swapIndicators}
+              onOfferGiveaway={offerGiveawayFromTile}
+              onProposeTrade={proposeTradeFromTile}
+            />
           ) : (
             <WeekGrid
               employees={scopedUsers}
@@ -1984,7 +2018,8 @@ function InnerApp(props) {
               timeOffList={data.time_off_requests}
               showTimeOffChips={flags.showTimeOffOnSchedule}
               onCreate={(userId, day) => setShiftModal({ open: true, preUserId: userId, preDay: day })}
-              onDelete={deleteShift} onEdit={(sh) => setEditModal({ open: true, shift: sh })}
+              onDelete={deleteShift}
+              onEdit={(sh) => setEditModal({ open: true, shift: sh })}
               swapIndicators={swapIndicators}
               allowCrossPosition={flags.allowCrossPosition}
               isQualified={isQualified}
@@ -2137,11 +2172,26 @@ function InnerApp(props) {
         <Section
           title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
           right={
-            <div className="inline-flex rounded-full border p-1 text-xs">
-              <button className={`px-3 py-1 rounded-full ${scheduleView==='my' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('my')}>My Schedule</button>
-              {canViewFullSchedule && (
-                <button className={`px-3 py-1 rounded-full ${scheduleView==='full' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('full')}>Full Schedule</button>
-              )}
+            <div className="flex flex-col items-end gap-1 text-xs">
+              <div className="inline-flex rounded-full border p-1">
+                <button
+                  className={`px-3 py-1 rounded-full ${scheduleView === 'my' ? 'bg-black text-white' : ''}`}
+                  onClick={() => setScheduleView('my')}
+                >
+                  My Schedule
+                </button>
+                {canViewFullSchedule && (
+                  <button
+                    className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
+                    onClick={() => setScheduleView('full')}
+                  >
+                    Full Schedule
+                  </button>
+                )}
+              </div>
+              <div className="mt-1 text-gray-500">
+                {scheduleView === 'my' ? 'Viewing: My Schedule' : 'Viewing: Full Schedule'}
+              </div>
             </div>
           }
         >
