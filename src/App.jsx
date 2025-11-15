@@ -2,6 +2,8 @@
 
 
 
+import { useRouter, parseRoute } from "./router.jsx";
+
 // Error boundary to avoid blank screen and show runtime errors
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -414,6 +416,16 @@ function Checkbox({ label, checked, onChange, hint }) {
 }
 
 function Modal({ open, onClose, title, children, footer }) {
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document === "undefined" || !document.body) return;
+    const prev = document.body.style.overflow || "";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-3" onClick={onClose}>
@@ -510,9 +522,10 @@ function WeekGrid(props) {
   const bubblePad = isDense ? 'px-2 py-1 text-xs' : 'px-2.5 py-2 text-sm';
 
   return (
-    <div className="overflow-x-auto">
-      <div className="w-full">
-        <div className="grid grid-cols-[200px_repeat(7,1fr)_120px]">
+    <div className="relative">
+      <div className="overflow-x-auto">
+        <div className="w-full">
+          <div className="grid grid-cols-[200px_repeat(7,1fr)_120px]">
           <div className="sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm">Employee</div>
           {weekDays.map((d) => (
             <div key={String(d)} className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm">
@@ -778,24 +791,13 @@ function WeekGrid(props) {
           </div>
         </div>
       </div>
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-end bg-gradient-to-l from-white/90 to-transparent sm:hidden">
+        <span className="pr-1 text-[10px] font-medium text-gray-400">⇠</span>
+      </div>
     </div>
   );
 }
-
-// One-time storage reset to survive schema/UI changes without a blank page
-try {
-  if (typeof window !== 'undefined') {
-    const KEY = 'shiftmate_reset_once_2025_11_10';
-    const forced = new URLSearchParams(window.location.search).get('reset') === '1';
-    if (forced || !localStorage.getItem(KEY)) {
-      localStorage.removeItem('shiftmate_v2');
-      localStorage.removeItem('shiftmate_current_user');
-      localStorage.removeItem('shiftmate_schedule_view');
-      localStorage.setItem(KEY, '1');
-      // first render will now use cleared storage
-    }
-  }
-} catch {}
 
 // ---------- main app ----------
 export default function App() {
@@ -1508,10 +1510,13 @@ function InnerApp(props) {
     dense, setDense,
   } = props;
   const safeDense = !!dense;
+  const { path, navigate } = useRouter();
+  const { name: routeName, params: routeParams } = useMemo(() => parseRoute(path), [path]);
   const { currentUser, logout } = useAuth();
   // Schedule view toggle (persisted): 'my' or 'full'
   const SCHEDULE_VIEW_KEY = 'shiftmate_schedule_view';
   const [scheduleView, setScheduleView] = useState(() => localStorage.getItem(SCHEDULE_VIEW_KEY) || 'my');
+  const canViewFullSchedule = currentUser && (currentUser.role === 'manager' || currentUser.role === 'owner');
   useEffect(() => { try { localStorage.setItem(SCHEDULE_VIEW_KEY, scheduleView); } catch {} }, [scheduleView]);
   // Requests sub-tab state
   const [requestsSubTab, setRequestsSubTab] = useState('timeoff');
@@ -1519,14 +1524,71 @@ function InnerApp(props) {
   useEffect(() => {
     if (!currentUser) return;
     const existing = localStorage.getItem(SCHEDULE_VIEW_KEY);
-    if (!existing) setScheduleView(currentUser.role !== 'employee' ? 'full' : 'my');
-  }, [currentUser]);
+    if (!existing) setScheduleView(canViewFullSchedule ? 'full' : 'my');
+  }, [currentUser, canViewFullSchedule]);
+
+  // If the current user cannot see the full schedule, force view to "my"
+  useEffect(() => {
+    if (!canViewFullSchedule && scheduleView !== 'my') {
+      setScheduleView('my');
+    }
+  }, [canViewFullSchedule, scheduleView]);
 
   const notAuthed = !currentUser;
 
   const flags = data.feature_flags || defaultFlags();
   const isManager = (currentUser?.role || 'employee') !== "employee";
   const scopedUsers = users;
+
+  // Route-driven redirects and tab syncing
+  useEffect(() => {
+    if (!currentUser) {
+      if (routeName !== 'login') {
+        navigate('/login', { replace: true });
+      }
+      return;
+    }
+    if (routeName === 'login' || routeName === 'root' || routeName === 'unknown') {
+      const role = currentUser.role || 'employee';
+      if (role === 'employee') {
+        navigate('/my', { replace: true });
+      } else if (weekStart) {
+        navigate(`/schedule/${weekStart}`, { replace: true });
+      }
+    }
+  }, [currentUser, routeName, navigate, weekStart]);
+
+  useEffect(() => {
+    if (routeName === 'schedule' || routeName === 'my') {
+      if (tab !== 'schedule') setTab('schedule');
+    } else if (routeName === 'requests' && tab !== 'requests') {
+      setTab('requests');
+    } else if (routeName === 'settings' && tab !== 'settings') {
+      setTab('settings');
+    }
+  }, [routeName, tab, setTab]);
+
+  // Keep weekStart in sync with /schedule/:week
+  useEffect(() => {
+    if (routeName !== 'schedule') return;
+    const weekParam = routeParams.week;
+    if (weekParam && weekParam !== weekStart) {
+      setWeekStart(weekParam);
+    }
+  }, [routeName, routeParams.week, weekStart, setWeekStart]);
+
+  // When managers change the week, reflect it in the URL
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = currentUser.role || 'employee';
+    if (role === 'employee') return;
+    if (routeName === 'schedule') {
+      const desired = `/schedule/${weekStart}`;
+      if (desired !== path) {
+        navigate(desired, { replace: true });
+      }
+    }
+  }, [currentUser, routeName, weekStart, path, navigate]);
 
   // Hydrate time-off requests from backend when auth + API are available.
   useEffect(() => {
@@ -1813,7 +1875,19 @@ function InnerApp(props) {
   };
 
   return (notAuthed ? (
-    <LoginPage onAfterLogin={() => setTab("schedule")} />
+    <LoginPage
+      onAfterLogin={(user) => {
+        const role = user?.role || 'employee';
+        setTab('schedule');
+        if (role === 'employee') {
+          navigate('/my', { replace: true });
+        } else if (weekStart) {
+          navigate(`/schedule/${weekStart}`, { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
+      }}
+    />
   ) : (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
       <PrintCSS />
@@ -1854,22 +1928,22 @@ function InnerApp(props) {
 
       <nav className="flex flex-wrap gap-2">
         {isManager && (<>
-          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" />
+          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" to={`/schedule/${weekStart}`} />
           <TabBtn id="employees" tab={tab} setTab={setTab} label="Employees" />
           {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
           {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
           {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.status==='pending').length + (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length})`} />
-          <TabBtn id="settings" tab={tab} setTab={setTab} label="Settings" />
+          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.status==='pending').length + (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length})`} to="/requests" />
+          <TabBtn id="settings" tab={tab} setTab={setTab} label="Settings" to="/settings" />
         </>)}
         {!isManager && (<>
-          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" />
+          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" to="/my" />
           {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
           {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
           {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} />
+          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} to="/requests" />
         </>)}
       </nav>
 
@@ -1886,6 +1960,25 @@ function InnerApp(props) {
             )
           }
         >
+          <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Week</span>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
+                className="rounded-lg border px-2 py-1 text-sm"
+              />
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
+            </div>
+            <button
+              className="rounded-lg border px-2 py-1 text-sm"
+              onClick={() => setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}
+            >
+              Today
+            </button>
+          </div>
           {scopedUsers.length === 0 ? (
             <div className="text-sm text-gray-600">Add employees first.</div>
           ) : (
@@ -2047,17 +2140,38 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {!isManager && tab === "schedule" && (
+      {((!isManager && tab === "schedule") || routeName === 'my') && (
         <Section
           title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
           right={
             <div className="inline-flex rounded-full border p-1 text-xs">
               <button className={`px-3 py-1 rounded-full ${scheduleView==='my' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('my')}>My Schedule</button>
-              <button className={`px-3 py-1 rounded-full ${scheduleView==='full' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('full')}>Full Schedule</button>
+              {canViewFullSchedule && (
+                <button className={`px-3 py-1 rounded-full ${scheduleView==='full' ? 'bg-black text-white' : ''}`} onClick={()=> setScheduleView('full')}>Full Schedule</button>
+              )}
             </div>
           }
         >
-          {scheduleView==='my' ? (
+          <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Week</span>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
+                className="rounded-lg border px-2 py-1 text-sm"
+              />
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
+            </div>
+            <button
+              className="rounded-lg border px-2 py-1 text-sm"
+              onClick={() => setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}
+            >
+              Today
+            </button>
+          </div>
+          {scheduleView==='my' || !canViewFullSchedule ? (
             <>
               <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
               <div className="mt-3" />
@@ -2252,9 +2366,17 @@ function InnerApp(props) {
   ));
 }
 
-function TabBtn({ id, tab, setTab, label }) {
+function TabBtn({ id, tab, setTab, label, to }) {
+  const router = useRouter();
+  const isActive = tab === id;
+  const handleClick = () => {
+    setTab(id);
+    if (to && router && typeof router.navigate === 'function') {
+      router.navigate(to);
+    }
+  };
   return (
-    <button onClick={() => setTab(id)} className={`rounded-full px-4 py-1 text-sm ${tab === id ? "bg-black text-white" : "border"}`}>{label}</button>
+    <button onClick={handleClick} className={`rounded-full px-4 py-1 text-sm ${isActive ? "bg-black text-white" : "border"}`}>{label}</button>
   );
 }
 
