@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import App from '../App.jsx'
+import { RouterProvider } from '../router.jsx'
 
 describe('Requests sub-tabs', () => {
   beforeEach(() => localStorage.clear())
@@ -16,7 +17,11 @@ describe('Requests sub-tabs', () => {
       schedules:[], time_off_requests:[], unavailability:[]
     }))
     localStorage.setItem('shiftmate_current_user', 'm1')
-    render(<App />)
+    render(
+      <RouterProvider>
+        <App />
+      </RouterProvider>
+    )
 
     const requestsTab = await screen.findByRole('button', { name: /requests/i })
     fireEvent.click(requestsTab)

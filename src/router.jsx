@@ -61,6 +61,11 @@ export function parseRoute(path) {
   if (path === "/") return { name: "root", params: {} };
   if (path.startsWith("/login")) return { name: "login", params: {} };
   if (path.startsWith("/my")) return { name: "my", params: {} };
+  if (path.startsWith("/employees")) return { name: "employees", params: {} };
+  if (path.startsWith("/availability")) return { name: "availability", params: {} };
+  if (path.startsWith("/feed")) return { name: "feed", params: {} };
+  if (path.startsWith("/tasks")) return { name: "tasks", params: {} };
+  if (path.startsWith("/messages")) return { name: "messages", params: {} };
   if (path.startsWith("/requests")) return { name: "requests", params: {} };
   if (path.startsWith("/settings")) return { name: "settings", params: {} };
   const match = path.match(/^\/schedule\/(\d{4}-\d{2}-\d{2})/);
@@ -68,4 +73,3 @@ export function parseRoute(path) {
   if (path.startsWith("/schedule")) return { name: "schedule", params: {} };
   return { name: "unknown", params: {} };
 }
-

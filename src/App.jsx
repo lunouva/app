@@ -802,7 +802,6 @@ function WeekGrid(props) {
 // ---------- main app ----------
 export default function App() {
   const [data, setData] = useState(loadData);
-  const [tab, setTab] = useState("schedule");
   const [locationId, setLocationId] = useState("loc1");
 
   const defaultWeekStart = fmtDate(startOfWeek(today(), 1));
@@ -1310,7 +1309,6 @@ export default function App() {
     const seeded = seedData();
     setData(seeded);
     setWeekStart(fmtDate(startOfWeek(today(), seeded.feature_flags.weekStartsOn)));
-    setTab("schedule");
     localStorage.removeItem("shiftmate_current_user");
   };
 
@@ -1450,8 +1448,6 @@ export default function App() {
       <InnerApp
         data={data}
         setData={setData}
-        tab={tab}
-        setTab={setTab}
         locationId={locationId}
         setLocationId={setLocationId}
         weekStart={weekStart}
@@ -1501,7 +1497,7 @@ export default function App() {
 
 function InnerApp(props) {
   const {
-    data, setData, tab, setTab, locationId, setLocationId, weekStart, setWeekStart,
+    data, setData, locationId, setLocationId, weekStart, setWeekStart,
     users, positions, positionsById, weekDays, schedule, ensureSchedule, createShift, updateShift, deleteShift,
     handleDuplicateShift, moveShift,
     publish, totalHoursByUser, totalHoursByDay, copyCsv, exportCsv, resetDemo, shiftModal, setShiftModal,
@@ -1540,6 +1536,14 @@ function InnerApp(props) {
   const isManager = (currentUser?.role || 'employee') !== "employee";
   const scopedUsers = users;
 
+  const activeTab = useMemo(() => {
+    if (routeName === 'my') return 'schedule';
+    if (['schedule','employees','availability','feed','tasks','messages','requests','settings'].includes(routeName)) {
+      return routeName;
+    }
+    return 'schedule';
+  }, [routeName]);
+
   // Route-driven redirects and tab syncing
   useEffect(() => {
     if (!currentUser) {
@@ -1548,25 +1552,15 @@ function InnerApp(props) {
       }
       return;
     }
-    if (routeName === 'login' || routeName === 'root' || routeName === 'unknown') {
-      const role = currentUser.role || 'employee';
-      if (role === 'employee') {
-        navigate('/my', { replace: true });
-      } else if (weekStart) {
-        navigate(`/schedule/${weekStart}`, { replace: true });
+      if (routeName === 'login' || routeName === 'root' || routeName === 'unknown') {
+        const role = currentUser.role || 'employee';
+        if (role === 'employee') {
+          navigate('/my', { replace: true });
+        } else if (weekStart) {
+          navigate(`/schedule/${weekStart}`, { replace: true });
+        }
       }
-    }
   }, [currentUser, routeName, navigate, weekStart]);
-
-  useEffect(() => {
-    if (routeName === 'schedule' || routeName === 'my') {
-      if (tab !== 'schedule') setTab('schedule');
-    } else if (routeName === 'requests' && tab !== 'requests') {
-      setTab('requests');
-    } else if (routeName === 'settings' && tab !== 'settings') {
-      setTab('settings');
-    }
-  }, [routeName, tab, setTab]);
 
   // Keep weekStart in sync with /schedule/:week
   useEffect(() => {
@@ -1878,7 +1872,6 @@ function InnerApp(props) {
     <LoginPage
       onAfterLogin={(user) => {
         const role = user?.role || 'employee';
-        setTab('schedule');
         if (role === 'employee') {
           navigate('/my', { replace: true });
         } else if (weekStart) {
@@ -1928,26 +1921,26 @@ function InnerApp(props) {
 
       <nav className="flex flex-wrap gap-2">
         {isManager && (<>
-          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" to={`/schedule/${weekStart}`} />
-          <TabBtn id="employees" tab={tab} setTab={setTab} label="Employees" />
-          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
-          {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
-          {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
-          {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.status==='pending').length + (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length})`} to="/requests" />
-          <TabBtn id="settings" tab={tab} setTab={setTab} label="Settings" to="/settings" />
+          <TabBtn id="schedule" tab={activeTab} label="Schedule" to={`/schedule/${weekStart}`} />
+          <TabBtn id="employees" tab={activeTab} label="Employees" to="/employees" />
+          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={activeTab} label="Availability" to="/availability" />}
+          {flags.newsfeedEnabled && <TabBtn id="feed" tab={activeTab} label="Feed" to="/feed" />}
+          {flags.tasksEnabled && <TabBtn id="tasks" tab={activeTab} label="Tasks" to="/tasks" />}
+          {flags.messagesEnabled && <TabBtn id="messages" tab={activeTab} label="Messages" to="/messages" />}
+          <TabBtn id="requests" tab={activeTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.status==='pending').length + (data.swap_requests||[]).filter(r=> ['open','offered','manager_pending'].includes(r.status)).length})`} to="/requests" />
+          <TabBtn id="settings" tab={activeTab} label="Settings" to="/settings" />
         </>)}
         {!isManager && (<>
-          <TabBtn id="schedule" tab={tab} setTab={setTab} label="Schedule" to="/my" />
-          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={tab} setTab={setTab} label="Availability" />}
-          {flags.newsfeedEnabled && <TabBtn id="feed" tab={tab} setTab={setTab} label="Feed" />}
-          {flags.tasksEnabled && <TabBtn id="tasks" tab={tab} setTab={setTab} label="Tasks" />}
-          {flags.messagesEnabled && <TabBtn id="messages" tab={tab} setTab={setTab} label="Messages" />}
-          <TabBtn id="requests" tab={tab} setTab={setTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} to="/requests" />
+          <TabBtn id="schedule" tab={activeTab} label="Schedule" to="/my" />
+          {flags.unavailabilityEnabled && <TabBtn id="availability" tab={activeTab} label="Availability" to="/availability" />}
+          {flags.newsfeedEnabled && <TabBtn id="feed" tab={activeTab} label="Feed" to="/feed" />}
+          {flags.tasksEnabled && <TabBtn id="tasks" tab={activeTab} label="Tasks" to="/tasks" />}
+          {flags.messagesEnabled && <TabBtn id="messages" tab={activeTab} label="Messages" to="/messages" />}
+          <TabBtn id="requests" tab={activeTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} to="/requests" />
         </>)}
       </nav>
 
-      {isManager && tab === "schedule" && (
+      {isManager && activeTab === "schedule" && (
         <Section
           title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
           right={
@@ -2032,7 +2025,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {isManager && tab === "employees" && (
+      {isManager && activeTab === "employees" && (
         <Section title="Employees">
           <div className="grid gap-4 md:grid-cols-[1fr,2fr]">
             <AddEmployeeForm onAdd={addEmployee} />
@@ -2062,7 +2055,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {isManager && flags.unavailabilityEnabled && tab === "availability" && (
+      {isManager && flags.unavailabilityEnabled && activeTab === "availability" && (
         <Section title="Availability (all employees)">
           <UnavailabilityAdmin
             users={users}
@@ -2074,7 +2067,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {!isManager && flags.unavailabilityEnabled && tab === "availability" && (
+      {!isManager && flags.unavailabilityEnabled && activeTab === "availability" && (
         <Section title="My Availability">
           <EmployeeAvailabilityView
             currentUser={currentUser}
@@ -2084,31 +2077,31 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {flags.newsfeedEnabled && tab === "feed" && (
+      {flags.newsfeedEnabled && activeTab === "feed" && (
         <Section title="Company feed">
           <NewsFeed users={users} currentUser={currentUser} posts={data.news_posts} onPost={(body)=>addPost(currentUser.id, body)} allowPost={isManager || data.feature_flags.employeesCanPostToFeed} />
         </Section>
       )}
 
-      {flags.tasksEnabled && tab === "tasks" && (
+      {flags.tasksEnabled && activeTab === "tasks" && (
         <Section title="Tasks">
           <TasksPanel users={users} currentUser={currentUser} tasks={data.tasks} templates={data.task_templates} onAdd={addTask} onSetStatus={setTaskStatus} onDelete={deleteTask} onAddTemplate={addTemplate} onDeleteTemplate={deleteTemplate} />
         </Section>
       )}
 
-      {flags.messagesEnabled && tab === "messages" && (
+      {flags.messagesEnabled && activeTab === "messages" && (
         <Section title="Messages">
           <MessagesPanel users={users} currentUser={currentUser} messages={data.messages} onSend={sendMessage} />
         </Section>
       )}
 
-      {isManager && tab === "requests-old" && (
+      {isManager && activeTab === "requests-old" && (
         <Section title="Timeâ€‘off requests">
           <RequestsPanel users={users} list={data.time_off_requests} onSetStatus={setTimeOffStatus} />
         </Section>
       )}
 
-      {isManager && tab === "requests-old" && (
+      {isManager && activeTab === "requests-old" && (
         <Section title="Swap requests (queue)">
           <SwapQueuePanel
             requests={data.swap_requests}
@@ -2121,7 +2114,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {!isManager && tab === "requests-old" && (
+      {!isManager && activeTab === "requests-old" && (
         <Section title="Swap Center">
           <EmployeeSwapsPanel
             data={data}
@@ -2140,7 +2133,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {((!isManager && tab === "schedule") || routeName === 'my') && (
+      {!isManager && activeTab === "schedule" && (
         <Section
           title={`Week of ${safeDate(weekStart).toLocaleDateString()}`}
           right={
@@ -2198,7 +2191,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {tab === "requests" && (
+      {activeTab === "requests" && (
         <Section title="Requests">
           {(() => {
             const pendingTO = (data.time_off_requests||[]).filter(r=> isManager ? r.status==='pending' : (r.user_id===currentUser.id && r.status==='pending')).length;
@@ -2265,7 +2258,7 @@ function InnerApp(props) {
         </Section>
       )}
 
-      {tab === "settings" && (
+      {activeTab === "settings" && (
         <Section title="Settings">
   <div className="space-y-6 text-sm">
     <div>
@@ -2370,7 +2363,9 @@ function TabBtn({ id, tab, setTab, label, to }) {
   const router = useRouter();
   const isActive = tab === id;
   const handleClick = () => {
-    setTab(id);
+    if (typeof setTab === 'function') {
+      setTab(id);
+    }
     if (to && router && typeof router.navigate === 'function') {
       router.navigate(to);
     }
