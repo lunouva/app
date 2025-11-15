@@ -168,6 +168,56 @@ const download = (filename, text) => {
 
 const isDateWithin = (dayISO, fromISO, toISO) => dayISO >= fromISO && dayISO <= toISO; // strings YYYY-MM-DD
 
+// ---------- backend API helpers (schedules / shifts) ----------
+const getAuthToken = () => {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage.getItem("shiftmate_auth_token");
+  } catch {
+    return null;
+  }
+};
+
+const isScheduleApiEnabled = () => typeof fetch === "function" && !!getAuthToken();
+
+const scheduleApiRequest = async (path, options = {}) => {
+  const token = getAuthToken();
+  if (typeof fetch !== "function" || !token) {
+    throw new Error("schedule_api_unavailable");
+  }
+  const res = await fetch(path, {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    let errBody = null;
+    try {
+      errBody = await res.json();
+    } catch (_) {
+      // ignore
+    }
+    const msg = (errBody && (errBody.error || errBody.message)) || `Request failed (${res.status})`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = errBody;
+    throw err;
+  }
+
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_e) {
+    return null;
+  }
+};
+
 // ---------- demo storage ----------
 const STORAGE_KEY = "shiftmate_v2";
 
@@ -251,6 +301,8 @@ const loadData = () => {
     if (parsed.feature_flags.requireManagerApproval == null) parsed.feature_flags.requireManagerApproval = true;
     if (parsed.feature_flags.swapCutoffHours == null) parsed.feature_flags.swapCutoffHours = 12;
     if (parsed.feature_flags.allowCrossPosition == null) parsed.feature_flags.allowCrossPosition = false;
+    // ensure schedules exists but treat as ephemeral (source of truth is backend)
+    if (!parsed.schedules) parsed.schedules = [];
     // backfill user extra fields
     parsed.users = (parsed.users || []).map(u => ({
       phone: "", birthday: "", pronouns: "", emergency_contact: { name: "", phone: "" }, attachments: [], notes: "", ...u,
@@ -279,7 +331,10 @@ const loadData = () => {
   }
 };
 
-const saveData = (data) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+const saveData = (data) => {
+  const { schedules, ...rest } = data || {};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+};
 
 // ---------- small UI bits ----------
 function Section({ title, right, children }) {
@@ -778,7 +833,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const schedule = useMemo(() => data.schedules.find((s) => s.location_id === location.id && s.week_start === weekStart), [data.schedules, location.id, weekStart]);
+  const schedule = useMemo(
+    () => (data.schedules || []).find((s) => s.location_id === location.id && s.week_start === weekStart),
+    [data.schedules, location.id, weekStart]
+  );
   const weekDays = useMemo(() => {
     const start = safeDate(weekStart);
     return Array.from({ length: 7 }, (_, i) => {
@@ -790,18 +848,67 @@ export default function App() {
 
   useEffect(() => { saveData(data); }, [data]);
 
-  const ensureSchedule = () => {
+  const ensureSchedule = async () => {
     if (schedule) return schedule;
-    const newSched = { id: uid(), location_id: location.id, week_start: weekStart, status: "draft", shifts: [] };
-    setData((d) => ({ ...d, schedules: [...d.schedules, newSched] }));
+
+    const useApi = isScheduleApiEnabled();
+    const locId = location.id;
+    const wk = weekStart;
+
+    if (useApi) {
+      try {
+        const params = new URLSearchParams({ locationId: locId, weekStart: wk });
+        try {
+          const existing = await scheduleApiRequest(`/api/schedules?${params.toString()}`);
+          if (existing && existing.schedule) {
+            const sched = existing.schedule;
+            setData((d) => {
+              const current = d.schedules || [];
+              const filtered = current.filter((s) => s.id !== sched.id);
+              return { ...d, schedules: [...filtered, sched] };
+            });
+            return sched;
+          }
+        } catch (err) {
+          if (!(err && err.status === 404)) {
+            // eslint-disable-next-line no-console
+            console.warn('ensureSchedule load error', err);
+          }
+        }
+
+        const created = await scheduleApiRequest('/api/schedules', {
+          method: 'POST',
+          body: { locationId: locId, weekStart: wk },
+        });
+        if (created && created.schedule) {
+          const sched = created.schedule;
+          setData((d) => ({
+            ...d,
+            schedules: [...(d.schedules || []), sched],
+          }));
+          return sched;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('ensureSchedule API failed, falling back to local schedule', err);
+      }
+    }
+
+    const newSched = { id: uid(), location_id: locId, week_start: wk, status: "draft", shifts: [] };
+    setData((d) => ({ ...d, schedules: [...(d.schedules || []), newSched] }));
     return newSched;
   };
 
   const upsertSchedule = (updater) => {
-    setData((d) => ({
-      ...d,
-      schedules: d.schedules.map((s) => (s.location_id === location.id && s.week_start === weekStart ? updater(s) : s)),
-    }));
+    setData((d) => {
+      const list = d.schedules || [];
+      return {
+        ...d,
+        schedules: list.map((s) =>
+          s.location_id === location.id && s.week_start === weekStart ? updater(s) : s
+        ),
+      };
+    });
   };
 
   // ----- Unavailability helpers -----
@@ -816,10 +923,12 @@ export default function App() {
   // Auto-ensure schedule whenever week or location changes
   useEffect(() => {
     if (!schedule) {
+      // fire-and-forget; errors are handled inside ensureSchedule
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       ensureSchedule();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.id, weekStart]);
+  }, [location.id, weekStart, schedule]);
 
   const hasUnavailabilityConflict = (user_id, day, start_hhmm, end_hhmm) => {
     const aStart = minutes(start_hhmm);
@@ -853,7 +962,7 @@ export default function App() {
   const auth = useAuth();
   const currentUserId = auth?.currentUser?.id || null;
 
-  const createShift = ({ user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes, quickTaskTitle, quickTaskTemplateId }) => {
+  const createShift = async ({ user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes, quickTaskTitle, quickTaskTemplateId }) => {
     // Basic time validation
     const startM = minutes(start_hhmm), endM = minutes(end_hhmm);
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
@@ -874,9 +983,53 @@ export default function App() {
 
     const starts = combineDayAndTime(day, start_hhmm);
     const ends = combineDayAndTime(day, end_hhmm);
-    const shift = { id: uid(), position_id, user_id, starts_at: starts.toISOString(), ends_at: ends.toISOString(), break_min: Number(break_min || 0), notes: notes || "" };
-    ensureSchedule();
-    upsertSchedule((s) => ({ ...s, shifts: [...s.shifts, shift] }));
+    const baseShift = {
+      position_id,
+      user_id,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      break_min: Number(break_min || 0),
+      notes: notes || "",
+    };
+
+    let createdShift = { id: uid(), ...baseShift };
+    const useApi = isScheduleApiEnabled();
+
+    if (useApi) {
+      try {
+        const sched = schedule || await ensureSchedule();
+        const res = await scheduleApiRequest('/api/shifts', {
+          method: 'POST',
+          body: { ...baseShift, scheduleId: sched.id },
+        });
+        if (res && res.shift) {
+          createdShift = res.shift;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('createShift API error, falling back to local state only', err);
+        if (!schedule) {
+          await ensureSchedule();
+        }
+      }
+    } else {
+      if (!schedule) {
+        await ensureSchedule();
+      }
+    }
+
+    setData((d) => {
+      const list = d.schedules || [];
+      return {
+        ...d,
+        schedules: list.map((s) => {
+          if (s.location_id === location.id && s.week_start === weekStart) {
+            return { ...s, shifts: [...(s.shifts || []), createdShift] };
+          }
+          return s;
+        }),
+      };
+    });
 
     // Optional quick task creation
     if (quickTaskTemplateId) {
@@ -887,8 +1040,21 @@ export default function App() {
     }
   };
 
-  const deleteShift = (shiftId) => { if (!schedule) return; upsertSchedule((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== shiftId) })); };
-  const updateShift = ({ id, user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes }) => {
+  const deleteShift = async (shiftId) => {
+    if (!schedule) return;
+    const useApi = isScheduleApiEnabled();
+    if (useApi) {
+      try {
+        await scheduleApiRequest(`/api/shifts/${encodeURIComponent(shiftId)}`, { method: 'DELETE' });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('deleteShift API error, applying local state only', err);
+      }
+    }
+    upsertSchedule((s) => ({ ...s, shifts: (s.shifts || []).filter((x) => x.id !== shiftId) }));
+  };
+
+  const updateShift = async ({ id, user_id, position_id, day, start_hhmm, end_hhmm, break_min, notes }) => {
     if (!schedule) return;
     const startM = minutes(start_hhmm), endM = minutes(end_hhmm);
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
@@ -906,9 +1072,36 @@ export default function App() {
     }
     const starts = combineDayAndTime(day, start_hhmm);
     const ends = combineDayAndTime(day, end_hhmm);
+    const baseUpdate = {
+      user_id,
+      position_id,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      break_min: Number(break_min || 0),
+      notes: notes || '',
+    };
+
+    let updatedShift = { id, ...baseUpdate };
+    const useApi = isScheduleApiEnabled();
+
+    if (useApi) {
+      try {
+        const res = await scheduleApiRequest(`/api/shifts/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: baseUpdate,
+        });
+        if (res && res.shift) {
+          updatedShift = res.shift;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('updateShift API error, updating local state only', err);
+      }
+    }
+
     upsertSchedule((s) => ({
       ...s,
-      shifts: s.shifts.map((sh) => sh.id === id ? { ...sh, user_id, position_id, starts_at: starts.toISOString(), ends_at: ends.toISOString(), break_min: Number(break_min||0), notes: notes||'' } : sh)
+      shifts: (s.shifts || []).map((sh) => (sh.id === id ? { ...sh, ...updatedShift } : sh)),
     }));
   };
   // Rename to avoid any chance of free-global lookups in prod bundles
@@ -929,7 +1122,32 @@ export default function App() {
     const end_hhmm = toHHMM(s.ends_at);
     updateShift({ id: s.id, user_id: targetUserId, position_id: s.position_id, day, start_hhmm, end_hhmm, break_min: s.break_min, notes: s.notes });
   };
-  const publish = () => { if (!schedule) return; upsertSchedule((s) => ({ ...s, status: s.status === "draft" ? "published" : "draft" })); };
+  const publish = async () => {
+    if (!schedule) return;
+    const nextStatus = schedule.status === "draft" ? "published" : "draft";
+    let updatedSchedule = { ...schedule, status: nextStatus };
+    const useApi = isScheduleApiEnabled();
+
+    if (useApi) {
+      try {
+        const res = await scheduleApiRequest(`/api/schedules/${encodeURIComponent(schedule.id)}`, {
+          method: 'PATCH',
+          body: { status: nextStatus },
+        });
+        if (res && res.schedule) {
+          updatedSchedule = res.schedule;
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('publish API error, toggling status locally only', err);
+      }
+    }
+
+    setData((d) => ({
+      ...d,
+      schedules: (d.schedules || []).map((s) => (s.id === schedule.id ? { ...s, ...updatedSchedule } : s)),
+    }));
+  };
 
   const totalHoursByUser = useMemo(() => {
     const totals = Object.fromEntries(users.map((u) => [u.id, 0]));
@@ -1963,14 +2181,56 @@ function LoginPage({ onAfterLogin }) {
 }
 
 function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
-  const myShifts = (schedule?.shifts || []).filter((s) => s.user_id === currentUser.id);
-  const byDay = Object.fromEntries(weekDays.map((d) => [fmtDate(d), []]));
-  for (const s of myShifts) {
-    const k = fmtDate(s.starts_at);
-    if (!byDay[k]) byDay[k] = [];
-    byDay[k].push(s);
-  }
+  const [remoteShifts, setRemoteShifts] = useState(null);
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
+
+  const weekStart = useMemo(
+    () => (weekDays && weekDays.length ? fmtDate(weekDays[0]) : null),
+    [weekDays]
+  );
+
+  useEffect(() => {
+    const useApi = isScheduleApiEnabled();
+    if (!useApi || !currentUser || !weekStart) {
+      setRemoteShifts(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ weekStart });
+        const res = await scheduleApiRequest(`/api/my/shifts?${params.toString()}`);
+        if (!cancelled) {
+          setRemoteShifts((res && res.data) || []);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('MyShifts API error, falling back to schedule prop', err);
+        if (!cancelled) {
+          setRemoteShifts(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, weekStart]);
+
+  const myShifts = useMemo(() => {
+    if (Array.isArray(remoteShifts)) return remoteShifts;
+    return (schedule?.shifts || []).filter((s) => s.user_id === currentUser.id);
+  }, [remoteShifts, schedule?.shifts, currentUser?.id]);
+
+  const byDay = useMemo(() => {
+    const map = Object.fromEntries(weekDays.map((d) => [fmtDate(d), []]));
+    for (const s of myShifts) {
+      const k = fmtDate(s.starts_at);
+      if (!map[k]) map[k] = [];
+      map[k].push(s);
+    }
+    return map;
+  }, [weekDays, myShifts]);
+
   const userNameById = useMemo(() => Object.fromEntries((users||[]).map(u => [u.id, u.full_name])), [users]);
   const coworkerShifts = useMemo(() => ((schedule?.shifts||[]).filter(sh => sh.user_id !== currentUser.id)), [schedule?.shifts, currentUser?.id]);
   return (
