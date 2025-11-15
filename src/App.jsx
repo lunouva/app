@@ -213,6 +213,9 @@ const seedData = () => {
     users,
     schedules: [],
     // Swap Shifts data (in-app demo storage)
+    // NOTE: Today this request/offer model is frontend-only.
+    // In the backend, the canonical tables are swap_offers / swap_claims;
+    // this state will eventually be hydrated from the /api/swaps/* endpoints.
     swap_requests: [], // {id, shift_id, requester_id, type:'give'|'trade', status, message, created_at, expires_at}
     swap_offers: [],   // {id, request_id, offerer_id, offer_shift_id|null, status, created_at}
     swap_audit_logs: [], // {id, swap_id, kind:'request'|'offer', actor_id, action, meta, created_at}
@@ -240,6 +243,8 @@ const loadData = () => {
     if (!parsed.feature_flags) parsed.feature_flags = defaultFlags();
     if (parsed.feature_flags.weekStartsOn == null) parsed.feature_flags.weekStartsOn = 1;
     // backfill swap fields and flags
+    // NOTE: when wired to the backend, swap_requests/swap_offers here
+    // will be replaced by data coming from swap_offers/swap_claims via /api/swaps/*
     if (!parsed.swap_requests) parsed.swap_requests = [];
     if (!parsed.swap_offers) parsed.swap_offers = [];
     if (!parsed.swap_audit_logs) parsed.swap_audit_logs = [];
@@ -1105,6 +1110,13 @@ function InnerApp(props) {
   const shiftWeek = (delta) => setWeekStart((s) => fmtDate(startOfWeek(addDays(s, delta * 7), flags.weekStartsOn)));
 
   // ----- Swap Shifts: helpers, state, actions -----
+  // This section currently manages a local request/offer model:
+  // - swap_requests/swap_offers are UI-only arrays.
+  // - In the backend, the canonical schema is swap_offers + swap_claims (see migrations and /api/swaps routes).
+  // When the API is wired up, these helpers will call:
+  // - POST /api/swaps/offers to create giveaway/trade offers for a shift.
+  // - GET /api/swaps/my and /api/swaps/open to populate the manager/employee views.
+  // - POST /api/swaps/:id/approve|deny|claim to apply, deny, or claim approved giveaways.
   const activeSwapStatuses = new Set(['open','offered','manager_pending']);
   const nowIso = () => new Date().toISOString();
 
@@ -2475,6 +2487,8 @@ function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShift
   const myId = currentUser.id;
   const allShifts = (data.schedules||[]).flatMap(s => (s.shifts||[]).map(sh => ({...sh, __location_id: s.location_id })));
   const myFutureShifts = allShifts.filter(s => s.user_id===myId && safeDate(s.starts_at) > new Date());
+  // NOTE: openRequests/myRequests/myOffers are still based on the local swap_requests/swap_offers model.
+  // In the normalized backend these will map to swap_offers rows and (for giveaways) swap_claims rows returned by /api/swaps/my and /api/swaps/open.
   const openRequests = (data.swap_requests||[]).filter(r => (r.status==='open' || r.status==='offered') && r.requester_id!==myId);
   const myRequests = (data.swap_requests||[]).filter(r => r.requester_id===myId);
   const myOffers = (data.swap_offers||[]).filter(o => o.offerer_id===myId);

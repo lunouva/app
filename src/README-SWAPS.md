@@ -15,21 +15,21 @@ Settings (demo flags)
 
 Data Model (SQL)
 
-- See `server/migrations/001_swaps.sql` for full `up` and comments for `down`.
-- Tables: `swap_requests`, `swap_offers`, `swap_audit_logs` with indexes.
+- Canonical swaps tables live in `server/migrations/002_swap_offers_claims.sql`:
+  - `swap_offers` (id, shift_id, offered_by, type, target_shift_id, status, note, created_at)
+  - `swap_claims` (id, offer_id, claimed_by, claimed_at, unique (offer_id, claimed_by))
+- `server/migrations/001_swaps.sql` is now a thin migration that ensures `pgcrypto` is available; it no longer defines swap tables.
 
 API (Express stubs)
 
-- Endpoints scaffolded in `server/routes/swaps.js`:
-  - POST `/api/swaps/requests` — create request
-  - GET `/api/swaps/my` — my requests/offers
-  - GET `/api/swaps/requests` — manager queue
-  - POST `/api/swaps/offers` — create offer
-  - POST `/api/swaps/offers/:id/accept` — requester accepts
-  - POST `/api/swaps/requests/:id/cancel` — requester cancels
-  - POST `/api/swaps/requests/:id/approve` — manager approves (apply)
-  - POST `/api/swaps/requests/:id/decline` — manager declines
-  - POST `/api/swaps/offers/:id/reject|withdraw` — manage offer state
+- Offer/claim model endpoints in `server/routes/swaps.js`:
+  - POST `/api/swaps/offers` { shiftId, type: 'giveaway'|'trade', targetShiftId?, note? }
+  - GET `/api/swaps/my`
+  - GET `/api/swaps/open`
+  - POST `/api/swaps/:id/approve` (manager)
+  - POST `/api/swaps/:id/deny` (manager)
+  - POST `/api/swaps/:id/claim` (employee; giveaways only)
+  - Handlers are wired to an in-memory store in this repo but are annotated for a real Postgres DAO using `swap_offers` / `swap_claims`.
 
 Server Apply (transaction)
 
@@ -40,19 +40,18 @@ Server Apply (transaction)
 
 UI (in this demo app)
 
-- Employees: `Requests` tab → Swap Center:
+- Employees: `Requests` tab + Swap Center:
   - Create request form (give/trade), view/open requests, accept offers, cancel.
   - Offer to cover or trade on others’ open requests.
-- Managers: `Requests` tab → Swap requests (queue): approve/decline manager-pending.
+- Managers: `Requests` tab + Swap requests (queue): approve/decline manager-pending.
 - Schedule: unchanged; reassignments reflect in grid after apply.
 
 Rollback
 
-- Drop `swap_audit_logs`, `swap_offers`, `swap_requests` (see comments in migration).
+- See comments in `002_swap_offers_claims.sql` for dropping `swap_claims` and `swap_offers` if needed.
 
 Next Steps
 
-- Wire to real JWT auth and DB.
+- Wire to real JWT auth and Postgres instead of the in-memory store.
 - Add WebSocket/polling for real-time badges.
-- Add Vitest + supertest API tests mirroring the happy paths and rejections.
-
+- Add Vitest + supertest API tests for swap offers and claims (happy paths + rejection cases).
