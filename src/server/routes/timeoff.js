@@ -1,19 +1,8 @@
-// Time-off routes (Express) — demo in-memory implementation
+// Time-off routes (Express) �?" demo in-memory implementation
 const { Router } = require('express');
+const { requireAuth, requireManager } = require('../auth');
+
 const router = Router();
-
-function parseDemoAuth(h = '') {
-  const m = String(h || '').match(/demo\s+(\S+):(\S+)/i);
-  if (!m) return null;
-  return { id: m[1], role: m[2] };
-}
-
-const requireAuth = (req, res, next) => {
-  const u = parseDemoAuth(req.get('authorization'));
-  if (!u) return res.status(401).json({ error: 'unauthorized' });
-  req.user = u; next();
-};
-const requireManager = (req, res, next) => { if (req.user?.role !== 'employee') return next(); return res.status(403).json({ error: 'forbidden' }); };
 
 const timeOff = new Map(); // id -> row
 

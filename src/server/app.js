@@ -3,6 +3,7 @@
 
 const express = require('express');
 const bodyParser = require('body-parser');
+const authRoutes = require('./routes/auth');
 const swaps = require('./routes/swaps');
 const timeoff = require('./routes/timeoff');
 const availability = require('./routes/availability');
@@ -11,9 +12,10 @@ const schedule = require('./routes/schedule');
 const app = express();
 app.use(bodyParser.json());
 
-// TODO: plug in your JWT auth middleware before routes
-// app.use(authMiddleware)
+// Auth endpoints (login, me)
+app.use('/api', authRoutes);
 
+// Feature routes
 app.use('/api/swaps', swaps);
 app.use('/api', timeoff);
 app.use('/api', availability);

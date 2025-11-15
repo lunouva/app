@@ -1,19 +1,8 @@
-// Availability routes (Express) — demo in-memory implementation
+// Availability routes (Express) �?" demo in-memory implementation
 const { Router } = require('express');
+const { requireAuth, requireManager } = require('../auth');
+
 const router = Router();
-
-function parseDemoAuth(h = '') {
-  const m = String(h || '').match(/demo\s+(\S+):(\S+)/i);
-  if (!m) return null;
-  return { id: m[1], role: m[2] };
-}
-
-const requireAuth = (req, res, next) => {
-  const u = parseDemoAuth(req.get('authorization'));
-  if (!u) return res.status(401).json({ error: 'unauthorized' });
-  req.user = u; next();
-};
-const requireManager = (req, res, next) => { if (req.user?.role !== 'employee') return next(); return res.status(403).json({ error: 'forbidden' }); };
 
 // Store: weekly rows per user
 // row: { id, user_id, weekday(0-6), start_hhmm, end_hhmm, note }
@@ -44,7 +33,7 @@ router.post('/availability', requireAuth, requireManager, (req, res) => {
   const saved = [];
   for (const r of rows) {
     const id = r.id || uuid();
-    const row = { id, user_id: r.user_id, weekday: Number(r.weekday), start_hhmm: String(r.start_hhmm||''), end_hhmm: String(r.end_hhmm||''), note: r.note || '' };
+    const row = { id, user_id: r.user_id, weekday: Number(r.weekday), start_hhmm: String(r.start_hhmm || ''), end_hhmm: String(r.end_hhmm || ''), note: r.note || '' };
     availability.set(id, row);
     saved.push(row);
   }

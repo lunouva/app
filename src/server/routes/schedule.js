@@ -1,18 +1,8 @@
-// Schedule routes (Express) — demo in-memory implementation
+// Schedule routes (Express) �?" demo in-memory implementation
 const { Router } = require('express');
+const { requireAuth } = require('../auth');
+
 const router = Router();
-
-function parseDemoAuth(h = '') {
-  const m = String(h || '').match(/demo\s+(\S+):(\S+)/i);
-  if (!m) return null;
-  return { id: m[1], role: m[2] };
-}
-
-const requireAuth = (req, res, next) => {
-  const u = parseDemoAuth(req.get('authorization'));
-  if (!u) return res.status(401).json({ error: 'unauthorized' });
-  req.user = u; next();
-};
 
 // In-memory schedule: { id, week_start, shifts:[{id, user_id, position_id, starts_at, ends_at}] }
 const schedules = new Map();

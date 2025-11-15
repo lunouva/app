@@ -1,28 +1,10 @@
-// Swap routes (Express) — new spec endpoints
+// Swap routes (Express) �?" new spec endpoints
 // Integrate with your Postgres layer and JWT auth.
 
 const { Router } = require('express');
+const { requireAuth, requireManager } = require('../auth');
+
 const router = Router();
-
-// ---- Demo auth guards (replace with real JWT) ----
-// Accept header: Authorization: "demo <userId>:<role>"
-function parseDemoAuth(h = '') {
-  const m = String(h || '').match(/demo\s+(\S+):(\S+)/i);
-  if (!m) return null;
-  return { id: m[1], role: m[2] };
-}
-
-const requireAuth = (req, res, next) => {
-  const u = parseDemoAuth(req.get('authorization'));
-  if (!u) return res.status(401).json({ error: 'unauthorized' });
-  req.user = u;
-  next();
-};
-
-const requireManager = (req, res, next) => {
-  if (req.user?.role && req.user.role !== 'employee') return next();
-  return res.status(403).json({ error: 'forbidden' });
-};
 
 // ---- Canonical DB shape (Postgres) ----
 // swap_offers: {
@@ -48,7 +30,7 @@ function uuid() {
   });
 }
 
-// Placeholder checks — wire these to DB
+// Placeholder checks �?" wire these to DB
 // In a real implementation these become queries/joins against shifts, users, positions, user_positions, etc.
 async function isShiftOwnedBy(shiftId, userId) {
   // TODO: SELECT 1 FROM shift_assignments WHERE shift_id = $1 AND user_id = $2;
@@ -125,7 +107,7 @@ router.post('/offers', requireAuth, async (req, res) => {
   return res.json({ offer: row });
 });
 
-// GET /api/swaps/my → my offers & inbound requests
+// GET /api/swaps/my �+' my offers & inbound requests
 router.get('/my', requireAuth, async (req, res) => {
   // TODO: query swap_offers filtered by offered_by and (for inbound) by target_shift_id / location ownership
   const my = [];
@@ -141,7 +123,7 @@ router.get('/my', requireAuth, async (req, res) => {
   return res.json({ my, inbound });
 });
 
-// GET /api/swaps/open → manager-approved giveaways available to claim
+// GET /api/swaps/open �+' manager-approved giveaways available to claim
 router.get('/open', requireAuth, async (_req, res) => {
   // TODO: SELECT * FROM swap_offers WHERE type='giveaway' AND status='approved';
   const open = [...swapOffers.values()].filter(o => o.type === 'giveaway' && o.status === 'approved');
