@@ -2248,6 +2248,8 @@ function InnerApp(props) {
                 swapIndicators={swapIndicators}
                 onOfferGiveaway={offerGiveawayFromTile}
                 onProposeTrade={proposeTradeFromTile}
+                allowCrossPosition={flags.allowCrossPosition}
+                isQualified={isQualified}
               />
             </>
           ) : (
@@ -2271,11 +2273,18 @@ function InnerApp(props) {
                 />
               </div>
               <div className="block md:hidden mt-3">
-                <MobileScheduleList
+                <EmployeeMobileScheduleList
                   weekDays={weekDays}
                   shifts={schedule?.shifts || []}
-                  users={scopedUsers}
+                  scheduleShifts={schedule?.shifts || []}
+                  currentUser={currentUser}
                   positionsById={positionsById}
+                  users={users}
+                  swapIndicators={swapIndicators}
+                  onOfferGiveaway={offerGiveawayFromTile}
+                  onProposeTrade={proposeTradeFromTile}
+                  allowCrossPosition={flags.allowCrossPosition}
+                  isQualified={isQualified}
                 />
               </div>
             </>
@@ -2659,11 +2668,171 @@ function LoginPage({ onAfterLogin }) {
           </ul>
         </div>
       </div>
-    </div>
-  );
-}
-
-function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
+	    </div>
+	  );
+	}
+	
+	function EmployeeMobileScheduleList({
+	  weekDays,
+	  shifts,
+	  scheduleShifts,
+	  currentUser,
+	  positionsById,
+	  users = [],
+	  swapIndicators = {},
+	  onOfferGiveaway,
+	  onProposeTrade,
+	  allowCrossPosition = false,
+	  isQualified = () => true,
+	}) {
+	  const [openShiftMenu, setOpenShiftMenu] = useState(null);
+	
+	  const byDay = useMemo(() => {
+	    const map = Object.fromEntries(weekDays.map((d) => [fmtDate(d), []]));
+	    for (const s of shifts || []) {
+	      const k = fmtDate(s.starts_at);
+	      if (!map[k]) map[k] = [];
+	      map[k].push(s);
+	    }
+	    return map;
+	  }, [weekDays, shifts]);
+	
+	  const userNameById = useMemo(
+	    () => Object.fromEntries((users || []).map((u) => [u.id, u.full_name])),
+	    [users]
+	  );
+	
+	  const coworkerShifts = useMemo(
+	    () =>
+	      (scheduleShifts || []).filter(
+	        (sh) => currentUser && sh.user_id !== currentUser.id
+	      ),
+	    [scheduleShifts, currentUser?.id]
+	  );
+	
+	  return (
+	    <div className="grid gap-2 md:grid-cols-2">
+	      {weekDays.map((d) => {
+	        const key = fmtDate(d);
+	        const dayShifts = byDay[key] || [];
+	        return (
+	          <div key={String(d)} className="rounded-2xl border p-3">
+	            <div className="mb-1 text-sm font-semibold">{fmtDateLabel(d)}</div>
+	            {dayShifts.length === 0 ? (
+	              <div className="text-sm text-gray-600">No shift.</div>
+	            ) : (
+	              <ul className="space-y-2">
+	                {dayShifts.map((s) => {
+	                  const isMine = currentUser && s.user_id === currentUser.id;
+	                  return (
+	                    <li
+	                      key={s.id}
+	                      className="relative rounded-xl border px-3 py-2 text-sm"
+	                      onClick={() => {
+	                        if (!isMine) return;
+	                        setOpenShiftMenu((v) => (v === s.id ? null : s.id));
+	                      }}
+	                    >
+	                      <div className="flex items-center justify-between">
+	                        <div className="font-medium">
+	                          {fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}
+	                        </div>
+	                      </div>
+	                      <div className="mt-0.5 text-xs text-gray-600">
+	                        {positionsById[s.position_id]?.name || "?"}
+	                      </div>
+	
+	                      {(swapIndicators[s.id]?.give ||
+	                        swapIndicators[s.id]?.trade) && (
+	                        <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
+	                          {swapIndicators[s.id]?.give && (
+	                            <span title="Giveaway">Give</span>
+	                          )}
+	                          {swapIndicators[s.id]?.trade && (
+	                            <span title="Trade">Trade</span>
+	                          )}
+	                        </div>
+	                      )}
+	
+	                      {isMine && openShiftMenu === s.id && (
+	                        <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow">
+	                          {onOfferGiveaway && (
+	                            <button
+	                              className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+	                              onClick={(e) => {
+	                                e.stopPropagation();
+	                                onOfferGiveaway(s.id);
+	                                setOpenShiftMenu(null);
+	                              }}
+	                            >
+	                              Offer Giveaway
+	                            </button>
+	                          )}
+	                          {onProposeTrade && (
+	                            <div className="mt-1 grid gap-1">
+	                              <div className="px-2 text-[11px] text-gray-600">
+	                                Propose Trade for:
+	                              </div>
+	                              <select
+	                                className="w-56 rounded border px-2 py-1"
+	                                onChange={(e) => {
+	                                  const targetId = e.target.value || "";
+	                                  if (!targetId) return;
+	                                  e.stopPropagation();
+	                                  onProposeTrade(s.id, targetId);
+	                                  setOpenShiftMenu(null);
+	                                }}
+	                              >
+	                                <option value="">Select coworker shift…</option>
+	                                {coworkerShifts
+	                                  .filter((sh) => {
+	                                    const same =
+	                                      sh.position_id === s.position_id;
+	                                    const cross =
+	                                      allowCrossPosition &&
+	                                      isQualified(
+	                                        currentUser.id,
+	                                        sh.position_id
+	                                      ) &&
+	                                      isQualified(
+	                                        sh.user_id,
+	                                        s.position_id
+	                                      );
+	                                    return same || cross;
+	                                  })
+	                                  .map((sh) => (
+	                                    <option key={sh.id} value={sh.id}>
+	                                      {(userNameById[sh.user_id] ||
+	                                        "Unknown")}{" "}
+	                                      · {fmtDateLabel(sh.starts_at)} ·{" "}
+	                                      {fmtTime(sh.starts_at)}–{fmtTime(
+	                                        sh.ends_at
+	                                      )}{" "}
+	                                      {positionsById[sh.position_id]?.name
+	                                        ? `· ${
+	                                            positionsById[sh.position_id]?.name
+	                                          }`
+	                                        : ""}
+	                                    </option>
+	                                  ))}
+	                              </select>
+	                            </div>
+	                          )}
+	                        </div>
+	                      )}
+	                    </li>
+	                  );
+	                })}
+	              </ul>
+	            )}
+	          </div>
+	        );
+	      })}
+	    </div>
+	  );
+	}
+	
+	function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
   const [remoteShifts, setRemoteShifts] = useState(null);
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
 
@@ -2715,8 +2884,8 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
   }, [weekDays, myShifts]);
 
   const userNameById = useMemo(() => Object.fromEntries((users||[]).map(u => [u.id, u.full_name])), [users]);
-  const coworkerShifts = useMemo(() => ((schedule?.shifts||[]).filter(sh => sh.user_id !== currentUser.id)), [schedule?.shifts, currentUser?.id]);
-  return (
+	  const coworkerShifts = useMemo(() => ((schedule?.shifts||[]).filter(sh => sh.user_id !== currentUser.id)), [schedule?.shifts, currentUser?.id]);
+	  if (false) return (
     <div className="grid gap-2 md:grid-cols-2">
       {weekDays.map((d) => (
         <div key={String(d)} className="rounded-2xl border p-3">
@@ -2782,12 +2951,27 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
             </ul>
           )}
         </div>
-      ))}
-    </div>
-  );
-}
-
-function TimeOffForm({ onSubmit }) {
+	      ))}
+	    </div>
+	  );
+	  return (
+	    <EmployeeMobileScheduleList
+	      weekDays={weekDays}
+	      shifts={myShifts}
+	      scheduleShifts={schedule?.shifts || []}
+	      currentUser={currentUser}
+	      positionsById={positionsById}
+	      users={users}
+	      swapIndicators={swapIndicators}
+	      onOfferGiveaway={onOfferGiveaway}
+	      onProposeTrade={onProposeTrade}
+	      allowCrossPosition={allowCrossPosition}
+	      isQualified={isQualified}
+	    />
+	  );
+	}
+	
+	function TimeOffForm({ onSubmit }) {
   const [from, setFrom] = useState(fmtDate(new Date()));
   const [to, setTo] = useState(fmtDate(new Date()));
   const [notes, setNotes] = useState("");
