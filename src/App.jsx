@@ -798,9 +798,44 @@ function WeekGrid(props) {
       </div>
 	    </div>
 	  );
-	}
-	
-	function UnifiedScheduleView({
+}
+
+function MobileScheduleView({
+  role,
+  mode,
+  weekDays,
+  shifts,
+  employees,
+  currentUserId,
+  positionsById,
+}) {
+  const filteredShifts = useMemo(() => {
+    if (!Array.isArray(shifts)) return [];
+    if (mode === 'my' && currentUserId) {
+      return shifts.filter((s) => s.user_id === currentUserId);
+    }
+    return shifts;
+  }, [shifts, mode, currentUserId]);
+
+  const visibleEmployees = useMemo(() => {
+    if (!Array.isArray(employees)) return [];
+    if (mode === 'my' && currentUserId) {
+      return employees.filter((e) => e.id === currentUserId);
+    }
+    return employees;
+  }, [employees, mode, currentUserId]);
+
+  return (
+    <MobileScheduleList
+      weekDays={weekDays}
+      shifts={filteredShifts}
+      users={visibleEmployees}
+      positionsById={positionsById}
+    />
+  );
+}
+
+function UnifiedScheduleView({
 	  role,
 	  mode,
 	  weekDays,
@@ -2087,16 +2122,31 @@ function InnerApp(props) {
           {scopedUsers.length === 0 ? (
             <div className="text-sm text-gray-600">Add employees first.</div>
           ) : scheduleView === 'my' ? (
-            <MyShifts
-              currentUser={currentUser}
-              schedule={schedule}
-              weekDays={weekDays}
-              positionsById={positionsById}
-              users={users}
-              swapIndicators={swapIndicators}
-              onOfferGiveaway={offerGiveawayFromTile}
-              onProposeTrade={proposeTradeFromTile}
-            />
+            <>
+              <div className="hidden md:block">
+                <MyShifts
+                  currentUser={currentUser}
+                  schedule={schedule}
+                  weekDays={weekDays}
+                  positionsById={positionsById}
+                  users={users}
+                  swapIndicators={swapIndicators}
+                  onOfferGiveaway={offerGiveawayFromTile}
+                  onProposeTrade={proposeTradeFromTile}
+                />
+              </div>
+              <div className="block md:hidden mt-3">
+                <MobileScheduleView
+                  role="manager"
+                  mode="my"
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  employees={scopedUsers}
+                  currentUserId={currentUser.id}
+                  positionsById={positionsById}
+                />
+              </div>
+            </>
           ) : (
             <>
               <div className="hidden md:block">
@@ -2122,10 +2172,13 @@ function InnerApp(props) {
                 />
               </div>
               <div className="block md:hidden mt-3">
-                <MobileScheduleList
+                <MobileScheduleView
+                  role="manager"
+                  mode="full"
                   weekDays={weekDays}
                   shifts={schedule?.shifts || []}
-                  users={scopedUsers}
+                  employees={scopedUsers}
+                  currentUserId={currentUser.id}
                   positionsById={positionsById}
                 />
               </div>
@@ -2319,18 +2372,31 @@ function InnerApp(props) {
             <>
               <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
               <div className="mt-3" />
-              <MyShifts
-                currentUser={currentUser}
-                schedule={schedule}
-                weekDays={weekDays}
-                positionsById={positionsById}
-                users={users}
-                swapIndicators={swapIndicators}
-                onOfferGiveaway={offerGiveawayFromTile}
-                onProposeTrade={proposeTradeFromTile}
-                allowCrossPosition={flags.allowCrossPosition}
-                isQualified={isQualified}
-              />
+              <div className="hidden md:block">
+                <MyShifts
+                  currentUser={currentUser}
+                  schedule={schedule}
+                  weekDays={weekDays}
+                  positionsById={positionsById}
+                  users={users}
+                  swapIndicators={swapIndicators}
+                  onOfferGiveaway={offerGiveawayFromTile}
+                  onProposeTrade={proposeTradeFromTile}
+                  allowCrossPosition={flags.allowCrossPosition}
+                  isQualified={isQualified}
+                />
+              </div>
+              <div className="block md:hidden mt-3">
+                <MobileScheduleView
+                  role="employee"
+                  mode="my"
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  employees={scopedUsers}
+                  currentUserId={currentUser.id}
+                  positionsById={positionsById}
+                />
+              </div>
             </>
           ) : (
             <>
@@ -2353,18 +2419,14 @@ function InnerApp(props) {
                 />
               </div>
               <div className="block md:hidden mt-3">
-                <EmployeeMobileScheduleList
+                <MobileScheduleView
+                  role="employee"
+                  mode="full"
                   weekDays={weekDays}
                   shifts={schedule?.shifts || []}
-                  scheduleShifts={schedule?.shifts || []}
-                  currentUser={currentUser}
+                  employees={scopedUsers}
+                  currentUserId={currentUser.id}
                   positionsById={positionsById}
-                  users={users}
-                  swapIndicators={swapIndicators}
-                  onOfferGiveaway={offerGiveawayFromTile}
-                  onProposeTrade={proposeTradeFromTile}
-                  allowCrossPosition={flags.allowCrossPosition}
-                  isQualified={isQualified}
                 />
               </div>
             </>
