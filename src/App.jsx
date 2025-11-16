@@ -3,6 +3,7 @@
 
 
 import { useRouter, parseRoute } from "./router.jsx";
+import MobileScheduleList from "./components/MobileScheduleList.jsx";
 
 // Error boundary to avoid blank screen and show runtime errors
 class ErrorBoundary extends React.Component {
@@ -2018,24 +2019,38 @@ function InnerApp(props) {
               onProposeTrade={proposeTradeFromTile}
             />
           ) : (
-            <WeekGrid
-              employees={scopedUsers}
-              weekDays={weekDays}
-              shifts={schedule?.shifts || []}
-              positionsById={positionsById}
-              unavailability={unavailability}
-              timeOffList={data.time_off_requests}
-              showTimeOffChips={flags.showTimeOffOnSchedule}
-              onCreate={(userId, day) => setShiftModal({ open: true, preUserId: userId, preDay: day })}
-              onDelete={deleteShift}
-              onEdit={(sh) => setEditModal({ open: true, shift: sh })}
-              swapIndicators={swapIndicators}
-              allowCrossPosition={flags.allowCrossPosition}
-              isQualified={isQualified}
-              useDense={safeDense}
-              onDuplicate={handleDuplicateShift}
-              onMoveShift={moveShift}
-            />
+            <>
+              <div className="hidden md:block">
+                <WeekGrid
+                  employees={scopedUsers}
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  positionsById={positionsById}
+                  unavailability={unavailability}
+                  timeOffList={data.time_off_requests}
+                  showTimeOffChips={flags.showTimeOffOnSchedule}
+                  onCreate={(userId, day) =>
+                    setShiftModal({ open: true, preUserId: userId, preDay: day })
+                  }
+                  onDelete={deleteShift}
+                  onEdit={(sh) => setEditModal({ open: true, shift: sh })}
+                  swapIndicators={swapIndicators}
+                  allowCrossPosition={flags.allowCrossPosition}
+                  isQualified={isQualified}
+                  useDense={safeDense}
+                  onDuplicate={handleDuplicateShift}
+                  onMoveShift={moveShift}
+                />
+              </div>
+              <div className="block md:hidden mt-3">
+                <MobileScheduleList
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  users={scopedUsers}
+                  positionsById={positionsById}
+                />
+              </div>
+            </>
           )}
 
           {schedule && (
