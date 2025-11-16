@@ -7,7 +7,7 @@ describe('Schedule toggle persistence', () => {
     localStorage.clear()
   })
 
-  it('shows only My Schedule for employees', async () => {
+  it('shows My/Full toggle for employees with My Schedule default', async () => {
     // Seed localStorage so App loads authenticated as an employee
     localStorage.setItem('shiftmate_v2', JSON.stringify({
       locations:[{id:'loc1', name:'Main Shop'}],
@@ -20,11 +20,16 @@ describe('Schedule toggle persistence', () => {
     localStorage.setItem('shiftmate_current_user', 'u1')
     render(<App />)
 
-    // Nav shows Schedule
     const myBtn = await screen.findByRole('button', { name: /my schedule/i })
+    const fullBtn = await screen.findByRole('button', { name: /full schedule/i })
 
-    // Expect My to be active and Full not visible for employees
+    // Default to My Schedule
     expect(myBtn.className).toMatch(/bg-black/)
-    expect(screen.queryByRole('button', { name: /full schedule/i })).toBeNull()
+    expect(fullBtn.className).not.toMatch(/bg-black/)
+
+    // Toggle to Full Schedule
+    fireEvent.click(fullBtn)
+    expect(fullBtn.className).toMatch(/bg-black/)
+    expect(myBtn.className).not.toMatch(/bg-black/)
   })
 })

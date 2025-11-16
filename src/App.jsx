@@ -1509,10 +1509,11 @@ function InnerApp(props) {
   const { path, navigate } = useRouter();
   const { name: routeName, params: routeParams } = useMemo(() => parseRoute(path), [path]);
   const { currentUser, logout } = useAuth();
+  const role = currentUser?.role || 'employee';
+  const isEmployee = role === 'employee';
   // Schedule view toggle (persisted): 'my' or 'full'
   const SCHEDULE_VIEW_KEY = 'shiftmate_schedule_view';
   const [scheduleView, setScheduleView] = useState(() => localStorage.getItem(SCHEDULE_VIEW_KEY) || 'my');
-  const canViewFullSchedule = currentUser && (currentUser.role === 'manager' || currentUser.role === 'owner');
   useEffect(() => { try { localStorage.setItem(SCHEDULE_VIEW_KEY, scheduleView); } catch {} }, [scheduleView]);
   // Requests sub-tab state
   const [requestsSubTab, setRequestsSubTab] = useState('timeoff');
@@ -1520,20 +1521,13 @@ function InnerApp(props) {
   useEffect(() => {
     if (!currentUser) return;
     const existing = localStorage.getItem(SCHEDULE_VIEW_KEY);
-    if (!existing) setScheduleView(canViewFullSchedule ? 'full' : 'my');
-  }, [currentUser, canViewFullSchedule]);
-
-  // If the current user cannot see the full schedule, force view to "my"
-  useEffect(() => {
-    if (!canViewFullSchedule && scheduleView !== 'my') {
-      setScheduleView('my');
-    }
-  }, [canViewFullSchedule, scheduleView]);
+    if (!existing) setScheduleView(isEmployee ? 'my' : 'full');
+  }, [currentUser, isEmployee]);
 
   const notAuthed = !currentUser;
 
   const flags = data.feature_flags || defaultFlags();
-  const isManager = (currentUser?.role || 'employee') !== "employee";
+  const isManager = !isEmployee;
   const scopedUsers = users;
 
   const activeTab = useMemo(() => {
@@ -1977,14 +1971,12 @@ function InnerApp(props) {
                   >
                     My Schedule
                   </button>
-                  {canViewFullSchedule && (
-                    <button
-                      className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
-                      onClick={() => setScheduleView('full')}
-                    >
-                      Full Schedule
-                    </button>
-                  )}
+                  <button
+                    className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
+                    onClick={() => setScheduleView('full')}
+                  >
+                    Full Schedule
+                  </button>
                 </div>
               </div>
               <div className="text-xs text-gray-500">
@@ -2197,14 +2189,12 @@ function InnerApp(props) {
                 >
                   My Schedule
                 </button>
-                {canViewFullSchedule && (
-                  <button
-                    className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
-                    onClick={() => setScheduleView('full')}
-                  >
-                    Full Schedule
-                  </button>
-                )}
+                <button
+                  className={`px-3 py-1 rounded-full ${scheduleView === 'full' ? 'bg-black text-white' : ''}`}
+                  onClick={() => setScheduleView('full')}
+                >
+                  Full Schedule
+                </button>
               </div>
               <div className="mt-1 text-gray-500">
                 {scheduleView === 'my' ? 'Viewing: My Schedule' : 'Viewing: Full Schedule'}
@@ -2231,7 +2221,7 @@ function InnerApp(props) {
               Today
             </button>
           </div>
-          {scheduleView==='my' || !canViewFullSchedule ? (
+          {scheduleView==='my' ? (
             <>
               <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
               <div className="mt-3" />
