@@ -796,11 +796,91 @@ function WeekGrid(props) {
       <div className="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-end bg-gradient-to-l from-white/90 to-transparent sm:hidden">
         <span className="pr-1 text-[10px] font-medium text-gray-400">⇠</span>
       </div>
-    </div>
-  );
-}
-
-// ---------- main app ----------
+	    </div>
+	  );
+	}
+	
+	function UnifiedScheduleView({
+	  role,
+	  mode,
+	  weekDays,
+	  employees,
+	  shifts,
+	  positionsById,
+	  unavailability,
+	  timeOffList,
+	  showTimeOffChips,
+	  currentUserId,
+	  useDense,
+	  onCreate,
+	  onDelete,
+	  onEdit,
+	  onDuplicate,
+	  onMoveShift,
+	  swapIndicators = {},
+	  onOfferGiveaway,
+	  onProposeTrade,
+	  allowCrossPosition = false,
+	  isQualified = () => true,
+	}) {
+	  const filteredShifts = useMemo(() => {
+	    if (!Array.isArray(shifts)) return [];
+	    if (mode === 'my' && currentUserId) {
+	      return shifts.filter((s) => s.user_id === currentUserId);
+	    }
+	    return shifts;
+	  }, [shifts, mode, currentUserId]);
+	
+	  const visibleEmployees = useMemo(() => {
+	    if (!Array.isArray(employees)) return [];
+	    if (mode === 'my' && currentUserId) {
+	      return employees.filter((e) => e.id === currentUserId);
+	    }
+	    return employees;
+	  }, [employees, mode, currentUserId]);
+	
+	  const canEdit = role === 'manager';
+	  const showTileActions = role === 'employee';
+	
+	  return (
+	    <>
+	      <div className="hidden md:block">
+	        <WeekGrid
+	          employees={visibleEmployees}
+	          weekDays={weekDays}
+	          shifts={filteredShifts}
+	          positionsById={positionsById}
+	          unavailability={unavailability}
+	          timeOffList={timeOffList}
+	          showTimeOffChips={showTimeOffChips}
+	          onCreate={canEdit ? onCreate : undefined}
+	          onDelete={canEdit ? onDelete : undefined}
+	          onEdit={canEdit ? onEdit : undefined}
+	          onDuplicate={canEdit ? onDuplicate : undefined}
+	          onMoveShift={canEdit ? onMoveShift : undefined}
+	          currentUserId={currentUserId}
+	          showTileActions={showTileActions}
+	          swapIndicators={swapIndicators}
+	          onOfferGiveaway={onOfferGiveaway}
+	          onProposeTrade={onProposeTrade}
+	          allowCrossPosition={allowCrossPosition}
+	          isQualified={isQualified}
+	          useDense={useDense}
+	        />
+	      </div>
+	      <div className="block md:hidden mt-3">
+	        <MobileScheduleList
+	          weekDays={weekDays}
+	          shifts={filteredShifts}
+	          users={visibleEmployees}
+	          positionsById={positionsById}
+	        />
+	      </div>
+	    </>
+	  );
+	}
+	
+	// ---------- main app ----------
 export default function App() {
   const [data, setData] = useState(loadData);
   const [locationId, setLocationId] = useState("loc1");
