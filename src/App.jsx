@@ -1567,14 +1567,13 @@ function InnerApp(props) {
     }
   }, [currentUser, routeName, navigate]);
 
-  // Keep weekStart in sync with /schedule/:week
+  // Keep weekStart in sync with /schedule/:week (derive from URL when it changes)
   useEffect(() => {
     if (routeName !== 'schedule') return;
     const weekParam = routeParams.week;
-    if (weekParam && weekParam !== weekStart) {
-      setWeekStart(weekParam);
-    }
-  }, [routeName, routeParams.week, weekStart, setWeekStart]);
+    if (!weekParam) return;
+    setWeekStart((prev) => (prev === weekParam ? prev : weekParam));
+  }, [routeName, routeParams.week, setWeekStart]);
 
   // When managers change the week, reflect it in the URL
   useEffect(() => {
@@ -2240,25 +2239,46 @@ function InnerApp(props) {
             <>
               <Pill tone={schedule?.status === 'published' ? 'success' : 'warn'}>{schedule ? schedule.status : 'no schedule yet'}</Pill>
               <div className="mt-3" />
-              <MyShifts currentUser={currentUser} schedule={schedule} weekDays={weekDays} positionsById={positionsById} users={users} swapIndicators={swapIndicators} onOfferGiveaway={offerGiveawayFromTile} onProposeTrade={proposeTradeFromTile} />
+              <MyShifts
+                currentUser={currentUser}
+                schedule={schedule}
+                weekDays={weekDays}
+                positionsById={positionsById}
+                users={users}
+                swapIndicators={swapIndicators}
+                onOfferGiveaway={offerGiveawayFromTile}
+                onProposeTrade={proposeTradeFromTile}
+              />
             </>
           ) : (
-            <WeekGrid
-              employees={scopedUsers}
-              weekDays={weekDays}
-              shifts={schedule?.shifts || []}
-              positionsById={positionsById}
-              unavailability={unavailability}
-              timeOffList={data.time_off_requests}
-              showTimeOffChips={flags.showTimeOffOnSchedule}
-              currentUserId={currentUser.id}
-              showTileActions={true}
-              swapIndicators={swapIndicators}
-              onOfferGiveaway={offerGiveawayFromTile}
-              onProposeTrade={proposeTradeFromTile}
-              allowCrossPosition={flags.allowCrossPosition}
-              isQualified={isQualified}
-            />
+            <>
+              <div className="hidden md:block">
+                <WeekGrid
+                  employees={scopedUsers}
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  positionsById={positionsById}
+                  unavailability={unavailability}
+                  timeOffList={data.time_off_requests}
+                  showTimeOffChips={flags.showTimeOffOnSchedule}
+                  currentUserId={currentUser.id}
+                  showTileActions={true}
+                  swapIndicators={swapIndicators}
+                  onOfferGiveaway={offerGiveawayFromTile}
+                  onProposeTrade={proposeTradeFromTile}
+                  allowCrossPosition={flags.allowCrossPosition}
+                  isQualified={isQualified}
+                />
+              </div>
+              <div className="block md:hidden mt-3">
+                <MobileScheduleList
+                  weekDays={weekDays}
+                  shifts={schedule?.shifts || []}
+                  users={scopedUsers}
+                  positionsById={positionsById}
+                />
+              </div>
+            </>
           )}
         </Section>
       )}
