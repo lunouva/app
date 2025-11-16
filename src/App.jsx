@@ -1538,7 +1538,7 @@ function InnerApp(props) {
 
   const activeTab = useMemo(() => {
     if (routeName === 'my') return 'schedule';
-    if (['schedule','employees','availability','feed','tasks','messages','requests','settings'].includes(routeName)) {
+    if (['schedule','dashboard','employees','availability','feed','tasks','messages','requests','settings'].includes(routeName)) {
       return routeName;
     }
     return 'schedule';
@@ -1561,6 +1561,16 @@ function InnerApp(props) {
         }
       }
   }, [currentUser, routeName, navigate, weekStart]);
+
+  // Protect manager/owner-only routes
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = currentUser.role || 'employee';
+    if (routeName === 'dashboard' && role === 'employee') {
+      // Employees should not access the dashboard; send them to their default view
+      navigate('/my', { replace: true });
+    }
+  }, [currentUser, routeName, navigate]);
 
   // Keep weekStart in sync with /schedule/:week
   useEffect(() => {
@@ -1922,6 +1932,7 @@ function InnerApp(props) {
       <nav className="flex flex-wrap gap-2">
         {isManager && (<>
           <TabBtn id="schedule" tab={activeTab} label="Schedule" to={`/schedule/${weekStart}`} />
+          <TabBtn id="dashboard" tab={activeTab} label="Dashboard" to="/dashboard" />
           <TabBtn id="employees" tab={activeTab} label="Employees" to="/employees" />
           {flags.unavailabilityEnabled && <TabBtn id="availability" tab={activeTab} label="Availability" to="/availability" />}
           {flags.newsfeedEnabled && <TabBtn id="feed" tab={activeTab} label="Feed" to="/feed" />}
@@ -1939,6 +1950,12 @@ function InnerApp(props) {
           <TabBtn id="requests" tab={activeTab} label={`Requests (${(data.time_off_requests||[]).filter(r=>r.user_id===currentUser.id && r.status==='pending').length + (data.swap_requests||[]).filter(r=> r.requester_id===currentUser.id && !['approved','declined','canceled','expired'].includes(r.status)).length})`} to="/requests" />
         </>)}
       </nav>
+
+      {isManager && activeTab === "dashboard" && (
+        <Section title="Dashboard" right={<div className="text-sm text-gray-600">Location overview</div>}>
+          <DashboardPanel data={data} users={users} currentUser={currentUser} />
+        </Section>
+      )}
 
       {isManager && activeTab === "schedule" && (
         <Section
@@ -3109,6 +3126,200 @@ function MessagesPanel({ users, currentUser, messages, onSend }) {
         <div className="flex gap-2">
           <input className="flex-1 rounded-xl border px-3 py-2 text-sm" value={body} onChange={(e)=>setBody(e.target.value)} placeholder="Type a message" />
           <button className="rounded-xl border px-3 py-2 text-sm" onClick={()=>{ onSend(currentUser.id, peerId, body); setBody(''); }}>Send</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Dashboard (Manager/Owner) ----------
+function DashboardPanel({ data, users, currentUser }) {
+  const locId = currentUser?.location_id || null;
+
+  const usersById = useMemo(
+    () => Object.fromEntries(users.map((u) => [u.id, u])),
+    [users]
+  );
+
+  const locationUserIds = useMemo(() => {
+    if (!locId) return new Set(users.map((u) => u.id));
+    return new Set(users.filter((u) => u.location_id === locId).map((u) => u.id));
+  }, [users, locId]);
+
+  const timeOff = useMemo(() => {
+    const list = data.time_off_requests || [];
+    return list.filter((r) => locationUserIds.has(r.user_id));
+  }, [data.time_off_requests, locationUserIds]);
+
+  const pendingTimeOff = useMemo(
+    () => timeOff.filter((r) => r.status === 'pending'),
+    [timeOff]
+  );
+
+  const swapRequests = useMemo(() => {
+    const list = data.swap_requests || [];
+    const schedules = data.schedules || [];
+    const allShifts = schedules.flatMap((s) =>
+      (s.shifts || []).map((sh) => ({ ...sh, __location_id: s.location_id }))
+    );
+    const shiftById = Object.fromEntries(allShifts.map((s) => [s.id, s]));
+    return list.filter((r) => {
+      const shift = shiftById[r.shift_id];
+      if (shift && locId) return shift.__location_id === locId;
+      if (!locId) return true;
+      const requester = usersById[r.requester_id];
+      return requester && requester.location_id === locId;
+    });
+  }, [data.swap_requests, data.schedules, usersById, locId]);
+
+  const pendingSwaps = useMemo(
+    () => swapRequests.filter((r) => ['open', 'offered', 'manager_pending'].includes(r.status)),
+    [swapRequests]
+  );
+
+  const availabilityRequests = useMemo(() => {
+    const list = data.availability_change_requests || [];
+    return list.filter((r) => locationUserIds.has(r.user_id));
+  }, [data.availability_change_requests, locationUserIds]);
+
+  const recentItems = useMemo(() => {
+    const items = [];
+
+    for (const r of timeOff) {
+      items.push({
+        id: `to-${r.id}`,
+        created_at: r.created_at || r.date_from,
+        type: 'Time Off',
+        label: `${usersById[r.user_id]?.full_name || 'Employee'} requested ${r.date_from} \u2192 ${r.date_to}`,
+        status: r.status,
+      });
+    }
+
+    for (const r of swapRequests) {
+      const requester = usersById[r.requester_id];
+      items.push({
+        id: `sw-${r.id}`,
+        created_at: r.created_at,
+        type: 'Swap',
+        label: `${requester?.full_name || 'Employee'} ${r.type === 'trade' ? 'proposed trade' : 'offered shift'}`,
+        status: r.status,
+      });
+    }
+
+    for (const r of availabilityRequests) {
+      const user = usersById[r.user_id];
+      items.push({
+        id: `av-${r.id}`,
+        created_at: r.created_at,
+        type: 'Availability',
+        label: `${user?.full_name || 'Employee'} requested availability change`,
+        status: r.status || 'pending',
+      });
+    }
+
+    items.sort((a, b) => {
+      const aTime = safeDate(a.created_at || 0).getTime();
+      const bTime = safeDate(b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+
+    return items.slice(0, 10);
+  }, [timeOff, swapRequests, availabilityRequests, usersById]);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+      <div className="space-y-4">
+        <div className="rounded-2xl border p-3">
+          <h3 className="mb-2 text-sm font-semibold">Recent Changes</h3>
+          {recentItems.length === 0 ? (
+            <div className="text-sm text-gray-600">No recent changes for this location yet.</div>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {recentItems.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{item.type}</div>
+                    <div className="text-xs text-gray-700">{item.label}</div>
+                  </div>
+                  <div className="text-right text-xs text-gray-500">
+                    {item.status && <div className="mb-1 capitalize">{item.status}</div>}
+                    {item.created_at && (
+                      <div>{safeDate(item.created_at).toLocaleString()}</div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border p-3">
+          <h3 className="mb-2 text-sm font-semibold">Swap Requests</h3>
+          {pendingSwaps.length === 0 ? (
+            <div className="text-sm text-gray-600">No open swap requests.</div>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {pendingSwaps.map((r) => {
+                const requester = usersById[r.requester_id];
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium">
+                        {requester?.full_name || 'Employee'} &middot; {r.type}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Status: {r.status}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {r.created_at && safeDate(r.created_at).toLocaleString()}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="rounded-2xl border p-3">
+          <h3 className="mb-2 text-sm font-semibold">Pending Time Off</h3>
+          {pendingTimeOff.length === 0 ? (
+            <div className="text-sm text-gray-600">No pending time-off requests.</div>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {pendingTimeOff.map((r) => {
+                const user = usersById[r.user_id];
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium">{user?.full_name || 'Employee'}</div>
+                      <div className="text-xs text-gray-600">
+                        {r.date_from} \u2192 {r.date_to}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {r.created_at && safeDate(r.created_at).toLocaleString()}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border p-3">
+          <h3 className="mb-2 text-sm font-semibold">Availability Requests</h3>
+          {availabilityRequests.length === 0 ? (
+            <div className="text-sm text-gray-600">No availability change requests.</div>
+          ) : (
+            <AvailabilityChangeRequestsPanel
+              users={users}
+              currentUser={currentUser}
+              requests={availabilityRequests}
+            />
+          )}
         </div>
       </div>
     </div>

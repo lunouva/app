@@ -60,6 +60,7 @@ export function parseRoute(path) {
   if (!path || path === "") return { name: "root", params: {} };
   if (path === "/") return { name: "root", params: {} };
   if (path.startsWith("/login")) return { name: "login", params: {} };
+  if (path.startsWith("/dashboard")) return { name: "dashboard", params: {} };
   if (path.startsWith("/my")) return { name: "my", params: {} };
   if (path.startsWith("/employees")) return { name: "employees", params: {} };
   if (path.startsWith("/availability")) return { name: "availability", params: {} };
