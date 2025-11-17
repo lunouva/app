@@ -32,6 +32,8 @@ export function WeekGrid(props) {
     // use a safe, local flag below to avoid any free variable refs
     onDuplicate,
     onMoveShift,
+    useDense,
+    cleanUI = false,
   } = props || {};
   const isDense = !!(props && (props.useDense ?? props.dense));
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
@@ -65,25 +67,64 @@ export function WeekGrid(props) {
   const cellPad = isDense ? "p-1 min-h-[60px]" : "p-2 min-h-24";
   const bubblePad = isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm";
 
+  const containerClass = cleanUI
+    ? "mt-3 rounded-3xl border border-gray-200 bg-white overflow-hidden"
+    : "relative";
+
+  const gridClass = cleanUI
+    ? "grid grid-cols-[200px_repeat(7,1fr)_120px]"
+    : "grid grid-cols-[200px_repeat(7,1fr)_120px]";
+
+  const headerCellClass = cleanUI
+    ? "border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold tracking-wide text-gray-700"
+    : "bg-gray-50 p-2 text-center font-semibold shadow-sm border-b";
+
+  const bodyCellClass = cleanUI
+    ? `${cellPad} border-t border-gray-100 align-top`
+    : `${cellPad} border-l border-t`;
+
+  const shiftTileClass = cleanUI
+    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm transition hover:border-gray-300 hover:shadow-md"
+    : `group relative rounded-xl border border-gray-200 bg-white ${
+        isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm"
+      } shadow-sm transition hover:border-gray-300 hover:shadow-md`;
+
   return (
-    <div className="relative">
-      <div className="overflow-x-auto">
-        <div className="w-full">
-          <div className="grid grid-cols-[200px_repeat(7,1fr)_120px]">
-            <div className="sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm">
-              Employee
-            </div>
-            {weekDays.map((d) => (
+    <div className={containerClass}>
+      <div className="relative">
+        <div className="overflow-x-auto">
+          <div className="w-full">
+            <div className={gridClass}>
               <div
-                key={String(d)}
-                className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
+                className={
+                  cleanUI
+                    ? `sticky left-0 top-0 z-20 ${headerCellClass} text-left`
+                    : "sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm"
+                }
               >
-                {fmtDateLabel(d)}
+                Employee
               </div>
-            ))}
-            <div className="sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm">
-              Total
-            </div>
+              {weekDays.map((d) => (
+                <div
+                  key={String(d)}
+                  className={
+                    cleanUI
+                      ? `sticky top-0 z-10 ${headerCellClass} text-left`
+                      : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
+                  }
+                >
+                  {fmtDateLabel(d)}
+                </div>
+              ))}
+              <div
+                className={
+                  cleanUI
+                    ? `sticky top-0 z-10 ${headerCellClass} text-right`
+                    : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
+                }
+              >
+                Total
+              </div>
 
             {employees.map((emp) => (
               <React.Fragment key={emp.id}>
@@ -124,7 +165,7 @@ export function WeekGrid(props) {
                   return (
                     <div
                       key={emp.id + dayKey}
-                      className={`border-l border-t ${cellPad}`}
+                      className={bodyCellClass}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "move";
@@ -170,11 +211,7 @@ export function WeekGrid(props) {
                               e.dataTransfer.setData("text/plain", s.id);
                               e.dataTransfer.effectAllowed = "move";
                             }}
-                            className={`group relative rounded-xl border border-gray-200 bg-white ${
-                              isDense
-                                ? "px-2 py-1 text-xs"
-                                : "px-2.5 py-2 text-sm"
-                            } shadow-sm transition hover:border-gray-300 hover:shadow-md`}
+                            className={shiftTileClass}
                             style={{
                               borderLeft: `4px solid ${colorForPosition(
                                 s.position_id
@@ -465,13 +502,23 @@ export function WeekGrid(props) {
             ))}
 
             {/* Totals row */}
-            <div className="sticky left-0 z-10 border-t bg-gray-50 p-2 font-semibold">
+            <div
+              className={
+                cleanUI
+                  ? "sticky left-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700"
+                  : "sticky left-0 z-10 border-t bg-gray-50 p-2 font-semibold"
+              }
+            >
               Totals
             </div>
             {weekDays.map((d) => (
               <div
                 key={"totals" + String(d)}
-                className="border-l border-t p-2 text-right font-semibold"
+                className={
+                  cleanUI
+                    ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
+                    : "border-l border-t p-2 text-right font-semibold"
+                }
               >
                 {(() => {
                   const key = fmtDateLocal(d);
@@ -491,7 +538,13 @@ export function WeekGrid(props) {
                 })()}
               </div>
             ))}
-            <div className="border-l border-t p-2 text-right font-semibold">
+            <div
+              className={
+                cleanUI
+                  ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
+                  : "border-l border-t p-2 text-right font-semibold"
+              }
+            >
               {(() => {
                 const total = (shifts || []).reduce(
                   (sum, s) =>
@@ -508,5 +561,6 @@ export function WeekGrid(props) {
         <span className="pr-1 text-[10px] font-medium text-gray-400">?</span>
       </div>
     </div>
+  </div>
   );
 }

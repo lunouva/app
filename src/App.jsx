@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
+﻿import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
 
 
 
@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
 
 
 /**
- * ShiftMate – safe build + updates per new spec
+ * ShiftMate â€“ safe build + updates per new spec
  * - Prev/Next week controls (respect custom work-week start)
  * - Unavailability: override with warning (confirm). Employees can edit; Managers can toggle in Settings.
  * - Time off: pending/approved chips on Schedule; scheduling over time off shows warning (confirm).
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
  * - Requests: its own tab for Managers/Owners (time-off approvals). Positions moved under Settings.
  * - Messages: simple DMs.
  * - NEW: Work-week start day configurable in Settings (applies to week picker & grid) + prev/next week buttons.
- * - NEW: Add Employee fields – phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
+ * - NEW: Add Employee fields â€“ phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
  * - NEW: Manager quick inputs (under Schedule): add Time Off & Weekly Unavailability; full lists remain in Requests/Unavailability tabs.
  *
  * This file is a complete, runnable React single-file app for the canvas preview.
@@ -841,14 +841,14 @@ export default function App() {
     // Unavailability override with confirm
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}–${c.end_hhmm}${c.notes ? ' • ' + c.notes : ''}`).join('\n');
+      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}â€“${c.end_hhmm}${c.notes ? ' â€¢ ' + c.notes : ''}`).join('\n');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSchedule anyway?`);
       if (!ok) return;
     }
-    // Time‑off warning with confirm
+    // Timeâ€‘off warning with confirm
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}→${r.date_to} (${r.status})${r.notes ? ' • ' + r.notes : ''}`).join('\n');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}â†’${r.date_to} (${r.status})${r.notes ? ' â€¢ ' + r.notes : ''}`).join('\n');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSchedule anyway?`);
       if (!ok) return;
     }
@@ -932,13 +932,13 @@ export default function App() {
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => (c.kind === 'weekly' ? 'Weekly' : c.date) + ': ' + (c.start_hhmm ?? '') + '–' + (c.end_hhmm ?? '') + (c.notes ? ' • ' + c.notes : '')).join('\n');
+      const lines = conflicts.slice(0, 3).map((c) => (c.kind === 'weekly' ? 'Weekly' : c.date) + ': ' + (c.start_hhmm ?? '') + 'â€“' + (c.end_hhmm ?? '') + (c.notes ? ' â€¢ ' + c.notes : '')).join('\n');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> r.date_from + '→' + r.date_to + ' (' + r.status + ')' + (r.notes ? ' • ' + r.notes : '')).join('\n');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> r.date_from + 'â†’' + r.date_to + ' (' + r.status + ')' + (r.notes ? ' â€¢ ' + r.notes : '')).join('\n');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
@@ -1200,7 +1200,7 @@ export default function App() {
     setData((d)=> ({ ...d, messages: [...d.messages, m] }));
   };
 
-  // Add employee (enhanced) – used by form
+  // Add employee (enhanced) â€“ used by form
   const addEmployee = (payload) => setData((d) => ({ ...d, users: [...d.users, { id: uid(), location_id: (d.locations[0]?.id||'loc1'), role: payload.role||'employee', is_active: true, password: 'demo', attachments: payload.attachments||[], ...payload }] }));
 
   return (
@@ -1669,10 +1669,10 @@ function InnerApp(props) {
           </div>
           <div className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <span className="text-gray-600">Week</span>
-            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>◀</button>
+            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>â—€</button>
             <input type="date" value={weekStart} onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))} className="outline-none" />
             <button className="rounded-lg border px-2 py-1" title="Jump to current week" onClick={()=> setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}>Today</button>
-            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>▶</button>
+            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
           </div>
           <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <input type="checkbox" checked={safeDense} onChange={(e)=> setDense && setDense(e.target.checked)} />
@@ -1748,14 +1748,14 @@ function InnerApp(props) {
           <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Week</span>
-              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>�</button>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
               <input
                 type="date"
                 value={weekStart}
                 onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
                 className="rounded-lg border px-2 py-1 text-sm"
               />
-              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>�</button>
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
             </div>
             <button
               className="rounded-lg border px-2 py-1 text-sm"
@@ -1814,6 +1814,7 @@ function InnerApp(props) {
                   useDense={safeDense}
                   onDuplicate={handleDuplicateShift}
                   onMoveShift={moveShift}
+                  cleanUI={true}
                 />
               </div>
               <div className="block md:hidden mt-3">
@@ -1872,7 +1873,7 @@ function InnerApp(props) {
                   <li key={u.id} className="grid gap-2 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div>
                       <div className="font-medium">{u.full_name} {u.pronouns ? <span className="text-xs text-gray-500">({u.pronouns})</span> : null}</div>
-                      <div className="text-xs text-gray-600">{u.email}{u.phone ? ` • ${u.phone}` : ''}{u.birthday ? ` • Birthday: ${u.birthday}` : ''}</div>
+                      <div className="text-xs text-gray-600">{u.email}{u.phone ? ` â€¢ ${u.phone}` : ''}{u.birthday ? ` â€¢ Birthday: ${u.birthday}` : ''}</div>
                       {u.emergency_contact?.name && (
                         <div className="text-xs text-gray-600">Emergency: {u.emergency_contact.name} {u.emergency_contact.phone ? `(${u.emergency_contact.phone})` : ''}</div>
                       )}
@@ -1932,7 +1933,7 @@ function InnerApp(props) {
       )}
 
       {isManager && activeTab === "requests-old" && (
-        <Section title="Time‑off requests">
+        <Section title="Timeâ€‘off requests">
           <RequestsPanel users={users} list={data.time_off_requests} onSetStatus={setTimeOffStatus} />
         </Section>
       )}
@@ -1997,14 +1998,14 @@ function InnerApp(props) {
           <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Week</span>
-              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>�</button>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
               <input
                 type="date"
                 value={weekStart}
                 onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
                 className="rounded-lg border px-2 py-1 text-sm"
               />
-              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>�</button>
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
             </div>
             <button
               className="rounded-lg border px-2 py-1 text-sm"
@@ -2061,6 +2062,7 @@ function InnerApp(props) {
                   onProposeTrade={proposeTradeFromTile}
                   allowCrossPosition={flags.allowCrossPosition}
                   isQualified={isQualified}
+                  cleanUI={true}
                 />
               </div>
               <div className="block md:hidden mt-3">
@@ -2242,7 +2244,7 @@ function InnerApp(props) {
         canQuickTask={true}
       />
 
-      <footer className="py-8 text-center text-xs text-gray-500">Role‑based demo. Ready to connect to Express/Postgres & JWT for production.</footer>
+      <footer className="py-8 text-center text-xs text-gray-500">Roleâ€‘based demo. Ready to connect to Express/Postgres & JWT for production.</footer>
     </div>
   ));
 }
@@ -2500,7 +2502,7 @@ function MyUnavailabilityEditor({ currentUser, list, onAdd, onUpdate, onDelete }
           {mine.map((ua) => (
             <li key={ua.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}–{ua.end_hhmm}</div>
+                <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}â€“{ua.end_hhmm}</div>
                 {ua.notes && <div className="text-xs text-gray-600">{ua.notes}</div>}
               </div>
               <div className="flex gap-2">
@@ -2581,7 +2583,7 @@ function MyTimeOffList({ data, currentUser }) {
         {mine.map((r) => (
           <li key={r.id} className="flex items-center justify-between py-2 text-sm">
             <div>
-              {r.date_from} → {r.date_to} {r.notes ? `• ${r.notes}` : ""}
+              {r.date_from} â†’ {r.date_to} {r.notes ? `â€¢ ${r.notes}` : ""}
             </div>
             <Pill tone={r.status === "approved" ? "success" : r.status === "denied" ? "danger" : "warn"}>{r.status}</Pill>
           </li>
@@ -2647,7 +2649,7 @@ function UnavailabilityAdmin({ users, list, onAdd, onUpdate, onDelete }) {
               {(grouped[u.id]||[]).filter(ua=>ua.kind==='weekly').map((ua)=> (
                 <li key={ua.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
                   <div>
-                    <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}–{ua.end_hhmm}</div>
+                    <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}â€“{ua.end_hhmm}</div>
                     {ua.notes && <div className="text-xs text-gray-600">{ua.notes}</div>}
                   </div>
                   <div className="flex gap-2">
@@ -2682,7 +2684,7 @@ function NewsFeed({ users, currentUser, posts, onPost, allowPost }) {
         {posts.length===0 && <li className="rounded-2xl border p-3 text-sm text-gray-600">No posts yet.</li>}
         {posts.map(p=> (
           <li key={p.id} className="rounded-2xl border p-3">
-            <div className="text-sm text-gray-500">{byId[p.user_id]?.full_name || 'Unknown'} • {new Date(p.created_at).toLocaleString()}</div>
+            <div className="text-sm text-gray-500">{byId[p.user_id]?.full_name || 'Unknown'} â€¢ {new Date(p.created_at).toLocaleString()}</div>
             <div className="mt-1 whitespace-pre-wrap">{p.body}</div>
           </li>
         ))}
@@ -2729,7 +2731,7 @@ function TasksPanel({ users, currentUser, tasks, templates, onAdd, onSetStatus, 
                   <div>{t.title}</div>
                   <div className="flex items-center gap-2">
                     <select className="rounded-xl border px-2 py-1" onChange={(e)=>{ const userId = e.target.value; if(!userId) return; onAdd(t.title, userId, fmtDate(new Date()), currentUser.id); e.target.value=''; }}>
-                      <option value="">Assign…</option>
+                      <option value="">Assignâ€¦</option>
                       {users.map(u=> <option key={u.id} value={u.id}>{u.full_name}</option>)}
                     </select>
                     <button className="rounded-xl border px-2 py-1" onClick={()=>onDeleteTemplate(t.id)}>Delete</button>
@@ -2749,7 +2751,7 @@ function TasksPanel({ users, currentUser, tasks, templates, onAdd, onSetStatus, 
             <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
                 <div className="font-medium">{t.title}</div>
-                <div className="text-xs text-gray-600">Due {t.due_date} • Assigned to {users.find(u=>u.id===t.assigned_to)?.full_name || '—'}</div>
+                <div className="text-xs text-gray-600">Due {t.due_date} â€¢ Assigned to {users.find(u=>u.id===t.assigned_to)?.full_name || 'â€”'}</div>
               </div>
               <div className="flex items-center gap-2">
                 <select className="rounded-xl border px-2 py-1" value={t.status} onChange={(e)=>onSetStatus(t.id, e.target.value)}>
@@ -3062,8 +3064,8 @@ function RequestsPanel({ users, list, onSetStatus }) {
           {pending.map(r=> (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{byId[r.user_id]?.full_name || '—'}</div>
-                <div className="text-gray-600">{r.date_from} → {r.date_to}{r.notes ? ` • ${r.notes}` : ''}</div>
+                <div className="font-medium">{byId[r.user_id]?.full_name || 'â€”'}</div>
+                <div className="text-gray-600">{r.date_from} â†’ {r.date_to}{r.notes ? ` â€¢ ${r.notes}` : ''}</div>
               </div>
               <div className="flex gap-2">
                 <button className="rounded-xl border px-2 py-1" onClick={()=>onSetStatus(r.id,'approved')}>Approve</button>
@@ -3080,8 +3082,8 @@ function RequestsPanel({ users, list, onSetStatus }) {
           {others.map(r=> (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{byId[r.user_id]?.full_name || '—'}</div>
-                <div className="text-gray-600">{r.date_from} → {r.date_to}{r.notes ? ` • ${r.notes}` : ''}</div>
+                <div className="font-medium">{byId[r.user_id]?.full_name || 'â€”'}</div>
+                <div className="text-gray-600">{r.date_from} â†’ {r.date_to}{r.notes ? ` â€¢ ${r.notes}` : ''}</div>
               </div>
               <Pill tone={r.status==='approved' ? 'success' : r.status==='denied' ? 'danger' : 'warn'}>{r.status}</Pill>
             </li>
@@ -3167,7 +3169,7 @@ function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShift
             <select className="rounded-xl border px-3 py-2" value={formShiftId} onChange={(e)=> setFormShiftId(e.target.value)}>
               {myFutureShifts.map(s => (
                 <option key={s.id} value={s.id}>
-                  {positionsById[s.position_id]?.name || "?"} � {new Date(s.starts_at).toLocaleString()} - {new Date(s.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                  {positionsById[s.position_id]?.name || "?"} — {new Date(s.starts_at).toLocaleString()} - {new Date(s.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
                 </option>
               ))}
             </select>
@@ -3343,7 +3345,7 @@ function SelfTestsPanel() {
       <ul className="text-xs space-y-1">
         {results.map((r, i) => (
           <li key={i} className={r.pass ? 'text-green-700' : 'text-red-700'}>
-            {r.pass ? '✔' : '✘'} {r.name}{!r.pass && r.error ? ` – ${r.error}` : ''}
+            {r.pass ? 'âœ”' : 'âœ˜'} {r.name}{!r.pass && r.error ? ` â€“ ${r.error}` : ''}
           </li>
         ))}
       </ul>
@@ -3480,6 +3482,7 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
+
 
 
 
