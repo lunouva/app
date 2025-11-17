@@ -4,6 +4,10 @@
 
 import { useRouter, parseRoute } from "./router.jsx";
 import MobileScheduleList from "./components/MobileScheduleList.jsx";
+import { WeekGrid } from "./components/schedule/WeekGrid.jsx";
+import { MobileScheduleView } from "./components/schedule/MobileScheduleView.jsx";
+import { MyShifts } from "./components/schedule/MyShifts.jsx";
+import { TimeOffForm } from "./components/requests/TimeOffForm.jsx";
 
 // Error boundary to avoid blank screen and show runtime errors
 class ErrorBoundary extends React.Component {
@@ -476,7 +480,7 @@ function AuthProvider({ children, data, setData }) {
 }
 
 // ---------- week grid ----------
-function WeekGrid(props) {
+function WeekGridLegacy(props) {
   const {
     employees,
     weekDays,
@@ -800,7 +804,7 @@ function WeekGrid(props) {
 	  );
 }
 
-function MobileScheduleView({
+function MobileScheduleViewLegacy({
   role,
   mode,
   weekDays,
@@ -2815,7 +2819,7 @@ function LoginPage({ onAfterLogin }) {
 	}
 	
 	
-function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
+function MyShiftsLegacy({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
   const [remoteShifts, setRemoteShifts] = useState(null);
 
   const weekStart = useMemo(
@@ -2879,7 +2883,7 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
     />
   );
 }
-function TimeOffForm({ onSubmit }) {
+function TimeOffFormLegacy({ onSubmit }) {
   const [from, setFrom] = useState(fmtDate(new Date()));
   const [to, setTo] = useState(fmtDate(new Date()));
   const [notes, setNotes] = useState("");
