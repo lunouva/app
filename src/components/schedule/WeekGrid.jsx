@@ -64,67 +64,80 @@ export function WeekGrid(props) {
     return m;
   }, [employees, timeOffList]);
 
-  const cellPad = isDense ? "p-1 min-h-[60px]" : "p-2 min-h-24";
+  const baseCellPad = isDense ? "p-1 min-h-[60px]" : "p-2 min-h-24";
   const bubblePad = isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm";
 
-  const containerClass = cleanUI
-    ? "mt-3 rounded-3xl border border-gray-200 bg-white overflow-hidden"
-    : "relative";
+  const outerClass = cleanUI
+    ? "mt-3 w-full rounded-3xl border border-gray-200 bg-white overflow-hidden"
+    : "w-full";
 
   const gridClass = cleanUI
     ? "grid grid-cols-[200px_repeat(7,1fr)_120px]"
-    : "grid grid-cols-[200px_repeat(7,1fr)_120px]";
+    : "grid grid-cols-[200px_repeat(7,1fr)_120px] border";
 
   const headerCellClass = cleanUI
-    ? "border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold tracking-wide text-gray-700"
-    : "bg-gray-50 p-2 text-center font-semibold shadow-sm border-b";
+    ? "border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold tracking-wide text-gray-700 text-left"
+    : "p-2 text-center font-semibold bg-gray-50 border-b";
 
   const bodyCellClass = cleanUI
-    ? `${cellPad} border-t border-gray-100 align-top`
-    : `${cellPad} border-l border-t`;
+    ? `${baseCellPad} border-t border-gray-100 align-top`
+    : `${baseCellPad} border-t border-l align-top`;
+
+  const employeeCellClass = cleanUI
+    ? "border-t border-gray-100 bg-white px-3 py-2 text-sm font-medium text-gray-900"
+    : "border-t px-2 py-2 font-medium";
 
   const shiftTileClass = cleanUI
-    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm transition hover:border-gray-300 hover:shadow-md"
-    : `group relative rounded-xl border border-gray-200 bg-white ${
-        isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm"
-      } shadow-sm transition hover:border-gray-300 hover:shadow-md`;
+    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm flex items-center justify-between gap-2"
+    : "group relative mb-1 rounded border px-2 py-1 text-xs flex items-center justify-between gap-2";
+
+  const addLinkClass = cleanUI
+    ? "text-[11px] text-gray-500 hover:text-gray-700 underline underline-offset-2"
+    : "text-xs text-gray-700 underline";
+
+  const totalColCellClass = cleanUI
+    ? "border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-right text-gray-800"
+    : "border-t border-l px-2 py-2 text-xs text-right";
+
+  const totalsRowClass = cleanUI
+    ? "border-t border-gray-200 bg-gray-50 text-xs text-gray-700"
+    : "border-t text-xs";
 
   return (
-    <div className={containerClass}>
-      <div className="relative">
-        <div className="overflow-x-auto">
-          <div className="w-full">
-            <div className={gridClass}>
+    <div className="relative">
+      <div className="overflow-x-auto">
+        <div className={outerClass}>
+          <div className={gridClass}>
+            <div
+              className={
+                cleanUI
+                  ? `sticky left-0 top-0 z-20 ${headerCellClass}`
+                  : "sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm"
+              }
+            >
+              Employee
+            </div>
+            {weekDays.map((d) => (
               <div
+                key={String(d)}
                 className={
                   cleanUI
-                    ? `sticky left-0 top-0 z-20 ${headerCellClass} text-left`
-                    : "sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm"
-                }
-              >
-                Employee
-              </div>
-              {weekDays.map((d) => (
-                <div
-                  key={String(d)}
-                  className={
-                    cleanUI
-                      ? `sticky top-0 z-10 ${headerCellClass} text-left`
-                      : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
-                  }
-                >
-                  {fmtDateLabel(d)}
-                </div>
-              ))}
-              <div
-                className={
-                  cleanUI
-                    ? `sticky top-0 z-10 ${headerCellClass} text-right`
+                    ? `sticky top-0 z-10 ${headerCellClass}`
                     : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
                 }
               >
-                Total
+                {fmtDateLabel(d)}
               </div>
+            ))}
+            <div
+              className={
+                cleanUI
+                  ? `sticky top-0 z-10 ${totalColCellClass}`
+                  : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
+              }
+            >
+              Total
+            </div>
 
             {employees.map((emp) => (
               <React.Fragment key={emp.id}>
@@ -561,6 +574,5 @@ export function WeekGrid(props) {
         <span className="pr-1 text-[10px] font-medium text-gray-400">?</span>
       </div>
     </div>
-  </div>
   );
 }
