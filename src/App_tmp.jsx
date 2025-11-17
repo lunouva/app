@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
+import React, { useEffect, useMemo, useState, createContext, useContext } from "react";
 
 
 
@@ -44,7 +44,7 @@ class ErrorBoundary extends React.Component {
 
 
 /**
- * ShiftMate â€“ safe build + updates per new spec
+ * ShiftMate – safe build + updates per new spec
  * - Prev/Next week controls (respect custom work-week start)
  * - Unavailability: override with warning (confirm). Employees can edit; Managers can toggle in Settings.
  * - Time off: pending/approved chips on Schedule; scheduling over time off shows warning (confirm).
@@ -53,7 +53,7 @@ class ErrorBoundary extends React.Component {
  * - Requests: its own tab for Managers/Owners (time-off approvals). Positions moved under Settings.
  * - Messages: simple DMs.
  * - NEW: Work-week start day configurable in Settings (applies to week picker & grid) + prev/next week buttons.
- * - NEW: Add Employee fields â€“ phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
+ * - NEW: Add Employee fields – phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
  * - NEW: Manager quick inputs (under Schedule): add Time Off & Weekly Unavailability; full lists remain in Requests/Unavailability tabs.
  *
  * This file is a complete, runnable React single-file app for the canvas preview.
@@ -590,8 +590,8 @@ function WeekGrid(props) {
                                 : "border-gray-300 bg-gray-50 text-gray-700"
                             }`}
                           >
-                            Time off {r.date_from}â†’{r.date_to} ({r.status})
-                            {r.notes ? ` â€¢ ${r.notes}` : ""}
+                            Time off {r.date_from}→{r.date_to} ({r.status})
+                            {r.notes ? ` • ${r.notes}` : ""}
                           </div>
                         ))}
 
@@ -600,8 +600,8 @@ function WeekGrid(props) {
                           key={ua.id}
                           className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700"
                         >
-                          Unavailable {ua.start_hhmm}â€“{ua.end_hhmm}
-                          {ua.notes ? ` â€¢ ${ua.notes}` : ""}
+                          Unavailable {ua.start_hhmm}–{ua.end_hhmm}
+                          {ua.notes ? ` • ${ua.notes}` : ""}
                         </div>
                       ))}
 
@@ -620,7 +620,7 @@ function WeekGrid(props) {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="font-medium">
-                              {fmtTime(s.starts_at)} â€“ {fmtTime(s.ends_at)}
+                              {fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}
                             </div>
                             <div className="absolute right-1 top-1 hidden gap-1 md:flex md:opacity-0 md:transition md:duration-150 md:group-hover:opacity-100">
                               {onEdit && (
@@ -732,14 +732,14 @@ function WeekGrid(props) {
                                     setOpenShiftMenu(null);
                                   }}
                                 >
-                                  <option value="">Select coworker shiftâ€¦</option>
+                                  <option value="">Select coworker shift…</option>
                                   {coworkerShifts.filter((sh)=> {
                                     const same = sh.position_id === s.position_id;
                                     const cross = allowCrossPosition && isQualified(currentUserId, sh.position_id) && isQualified(sh.user_id, s.position_id);
                                     return same || cross;
                                   }).map((sh) => (
                                     <option key={sh.id} value={sh.id}>
-                                      {(userNameById[sh.user_id] || 'Unknown')} Â· {fmtDateLabel(sh.starts_at)} Â· {fmtTime(sh.starts_at)}â€“{fmtTime(sh.ends_at)} {positionsById[sh.position_id]?.name ? `Â· ${positionsById[sh.position_id]?.name}` : ''}
+                                      {(userNameById[sh.user_id] || 'Unknown')} · {fmtDateLabel(sh.starts_at)} · {fmtTime(sh.starts_at)}–{fmtTime(sh.ends_at)} {positionsById[sh.position_id]?.name ? `· ${positionsById[sh.position_id]?.name}` : ''}
                                     </option>
                                   ))}
                                 </select>
@@ -1196,14 +1196,14 @@ export default function App() {
     // Unavailability override with confirm
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}â€“${c.end_hhmm}${c.notes ? ' â€¢ ' + c.notes : ''}`).join('\n');
+      const lines = conflicts.slice(0, 3).map((c) => `${c.kind === 'weekly' ? 'Weekly' : c.date}: ${c.start_hhmm}–${c.end_hhmm}${c.notes ? ' • ' + c.notes : ''}`).join('\n');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSchedule anyway?`);
       if (!ok) return;
     }
-    // Timeâ€‘off warning with confirm
+    // Time‑off warning with confirm
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}â†’${r.date_to} (${r.status})${r.notes ? ' â€¢ ' + r.notes : ''}`).join('\n');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> `${r.date_from}→${r.date_to} (${r.status})${r.notes ? ' • ' + r.notes : ''}`).join('\n');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSchedule anyway?`);
       if (!ok) return;
     }
@@ -1287,13 +1287,13 @@ export default function App() {
     if (!(endM > startM)) { alert('End time must be after start time.'); return; }
     const conflicts = hasUnavailabilityConflict(user_id, day, start_hhmm, end_hhmm);
     if (conflicts.length) {
-      const lines = conflicts.slice(0, 3).map((c) => (c.kind === 'weekly' ? 'Weekly' : c.date) + ': ' + (c.start_hhmm ?? '') + 'â€“' + (c.end_hhmm ?? '') + (c.notes ? ' â€¢ ' + c.notes : '')).join('\n');
+      const lines = conflicts.slice(0, 3).map((c) => (c.kind === 'weekly' ? 'Weekly' : c.date) + ': ' + (c.start_hhmm ?? '') + '–' + (c.end_hhmm ?? '') + (c.notes ? ' • ' + c.notes : '')).join('\n');
       const ok = confirm(`This shift overlaps with unavailability:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
     const timeOffMatches = hasTimeOffConflict(user_id, day);
     if (timeOffMatches.length) {
-      const lines = timeOffMatches.slice(0, 3).map((r)=> r.date_from + 'â†’' + r.date_to + ' (' + r.status + ')' + (r.notes ? ' â€¢ ' + r.notes : '')).join('\n');
+      const lines = timeOffMatches.slice(0, 3).map((r)=> r.date_from + '→' + r.date_to + ' (' + r.status + ')' + (r.notes ? ' • ' + r.notes : '')).join('\n');
       const ok = confirm(`This shift falls during time off:\n${lines}\n\nSave anyway?`);
       if (!ok) return;
     }
@@ -1555,7 +1555,7 @@ export default function App() {
     setData((d)=> ({ ...d, messages: [...d.messages, m] }));
   };
 
-  // Add employee (enhanced) â€“ used by form
+  // Add employee (enhanced) – used by form
   const addEmployee = (payload) => setData((d) => ({ ...d, users: [...d.users, { id: uid(), location_id: (d.locations[0]?.id||'loc1'), role: payload.role||'employee', is_active: true, password: 'demo', attachments: payload.attachments||[], ...payload }] }));
 
   return (
@@ -2024,10 +2024,10 @@ function InnerApp(props) {
           </div>
           <div className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <span className="text-gray-600">Week</span>
-            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>â—€</button>
+            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>◀</button>
             <input type="date" value={weekStart} onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))} className="outline-none" />
             <button className="rounded-lg border px-2 py-1" title="Jump to current week" onClick={()=> setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}>Today</button>
-            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
+            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>▶</button>
           </div>
           <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <input type="checkbox" checked={safeDense} onChange={(e)=> setDense && setDense(e.target.checked)} />
@@ -2103,14 +2103,14 @@ function InnerApp(props) {
           <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Week</span>
-              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>�</button>
               <input
                 type="date"
                 value={weekStart}
                 onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
                 className="rounded-lg border px-2 py-1 text-sm"
               />
-              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>�</button>
             </div>
             <button
               className="rounded-lg border px-2 py-1 text-sm"
@@ -2227,7 +2227,7 @@ function InnerApp(props) {
                   <li key={u.id} className="grid gap-2 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div>
                       <div className="font-medium">{u.full_name} {u.pronouns ? <span className="text-xs text-gray-500">({u.pronouns})</span> : null}</div>
-                      <div className="text-xs text-gray-600">{u.email}{u.phone ? ` â€¢ ${u.phone}` : ''}{u.birthday ? ` â€¢ Birthday: ${u.birthday}` : ''}</div>
+                      <div className="text-xs text-gray-600">{u.email}{u.phone ? ` • ${u.phone}` : ''}{u.birthday ? ` • Birthday: ${u.birthday}` : ''}</div>
                       {u.emergency_contact?.name && (
                         <div className="text-xs text-gray-600">Emergency: {u.emergency_contact.name} {u.emergency_contact.phone ? `(${u.emergency_contact.phone})` : ''}</div>
                       )}
@@ -2287,7 +2287,7 @@ function InnerApp(props) {
       )}
 
       {isManager && activeTab === "requests-old" && (
-        <Section title="Timeâ€‘off requests">
+        <Section title="Time‑off requests">
           <RequestsPanel users={users} list={data.time_off_requests} onSetStatus={setTimeOffStatus} />
         </Section>
       )}
@@ -2352,14 +2352,14 @@ function InnerApp(props) {
           <div className="mt-3 mb-4 flex items-center justify-between gap-2 sm:hidden text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Week</span>
-              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>‹</button>
+              <button className="rounded-lg border px-2 py-1" title="Previous week" onClick={() => shiftWeek(-1)}>�</button>
               <input
                 type="date"
                 value={weekStart}
                 onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))}
                 className="rounded-lg border px-2 py-1 text-sm"
               />
-              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>›</button>
+              <button className="rounded-lg border px-2 py-1" title="Next week" onClick={() => shiftWeek(1)}>�</button>
             </div>
             <button
               className="rounded-lg border px-2 py-1 text-sm"
@@ -2597,7 +2597,7 @@ function InnerApp(props) {
         canQuickTask={true}
       />
 
-      <footer className="py-8 text-center text-xs text-gray-500">Roleâ€‘based demo. Ready to connect to Express/Postgres & JWT for production.</footer>
+      <footer className="py-8 text-center text-xs text-gray-500">Role‑based demo. Ready to connect to Express/Postgres & JWT for production.</footer>
     </div>
   ));
 }
@@ -2814,51 +2814,197 @@ function LoginPage({ onAfterLogin }) {
 	  );
 	}
 	
+	function EmployeeMobileScheduleList({
+	  weekDays,
+	  shifts,
+	  scheduleShifts,
+	  currentUser,
+	  positionsById,
+	  users = [],
+	  swapIndicators = {},
+	  onOfferGiveaway,
+	  onProposeTrade,
+	  allowCrossPosition = false,
+	  isQualified = () => true,
+	}) {
+	  const [openShiftMenu, setOpenShiftMenu] = useState(null);
 	
-function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], swapIndicators = {}, onOfferGiveaway, onProposeTrade, allowCrossPosition = false, isQualified = () => true }) {
-  const [remoteShifts, setRemoteShifts] = useState(null);
+	  const byDay = useMemo(() => {
+	    const map = Object.fromEntries(weekDays.map((d) => [fmtDate(d), []]));
+	    for (const s of shifts || []) {
+	      const k = fmtDate(s.starts_at);
+	      if (!map[k]) map[k] = [];
+	      map[k].push(s);
+	    }
+	    return map;
+	  }, [weekDays, shifts]);
+	
+	  const userNameById = useMemo(
+	    () => Object.fromEntries((users || []).map((u) => [u.id, u.full_name])),
+	    [users]
+	  );
+	
+	  const coworkerShifts = useMemo(
+	    () =>
+	      (scheduleShifts || []).filter(
+	        (sh) => currentUser && sh.user_id !== currentUser.id
+	      ),
+	    [scheduleShifts, currentUser?.id]
+	  );
+	
+	  return (
+	    <div className="grid gap-2 md:grid-cols-2">
+	      {weekDays.map((d) => {
+	        const key = fmtDate(d);
+	        const dayShifts = byDay[key] || [];
+	        return (
+	          <div key={String(d)} className="rounded-2xl border p-3">
+	            <div className="mb-1 text-sm font-semibold">{fmtDateLabel(d)}</div>
+	            {dayShifts.length === 0 ? (
+	              <div className="text-sm text-gray-600">No shift.</div>
+	            ) : (
+	              <ul className="space-y-2">
+	                {dayShifts.map((s) => {
+	                  const isMine = currentUser && s.user_id === currentUser.id;
+	                  return (
+	                    <li
+	                      key={s.id}
+	                      className="relative rounded-xl border px-3 py-2 text-sm"
+	                      onClick={() => {
+	                        if (!isMine) return;
+	                        setOpenShiftMenu((v) => (v === s.id ? null : s.id));
+	                      }}
+	                    >
+	                      <div className="flex items-center justify-between">
+	                        <div className="font-medium">
+	                          {fmtTime(s.starts_at)} � {fmtTime(s.ends_at)}
+	                        </div>
+	                      </div>
+	                      <div className="mt-0.5 text-xs text-gray-600">
+	                        {positionsById[s.position_id]?.name || "?"}
+	                      </div>
+	
+	                      {(swapIndicators[s.id]?.give ||
+	                        swapIndicators[s.id]?.trade) && (
+	                        <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
+	                          {swapIndicators[s.id]?.give && (
+	                            <span title="Giveaway">Give</span>
+	                          )}
+	                          {swapIndicators[s.id]?.trade && (
+	                            <span title="Trade">Trade</span>
+	                          )}
+	                        </div>
+	                      )}
+	
+	                      {isMine && openShiftMenu === s.id && (
+	                        <div className="absolute bottom-1 right-1 z-20 rounded-lg border bg-white p-1 text-xs shadow">
+	                          {onOfferGiveaway && (
+	                            <button
+	                              className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+	                              onClick={(e) => {
+	                                e.stopPropagation();
+	                                onOfferGiveaway(s.id);
+	                                setOpenShiftMenu(null);
+	                              }}
+	                            >
+	                              Offer Giveaway
+	                            </button>
+	                          )}
+	                          {onProposeTrade && (
+	                            <div className="mt-1 grid gap-1">
+	                              <div className="px-2 text-[11px] text-gray-600">
+	                                Propose Trade for:
+	                              </div>
+	                              <select
+	                                className="w-56 rounded border px-2 py-1"
+	                                onChange={(e) => {
+	                                  const targetId = e.target.value || "";
+	                                  if (!targetId) return;
+	                                  e.stopPropagation();
+	                                  onProposeTrade(s.id, targetId);
+	                                  setOpenShiftMenu(null);
+	                                }}
+	                              >
+	                                <option value="">Select coworker shift�</option>
+	                                {coworkerShifts
+	                                  .filter((sh) => {
+	                                    const same =
+	                                      sh.position_id === s.position_id;
+	                                    const cross =
+	                                      allowCrossPosition &&
+	                                      isQualified(
+	                                        currentUser.id,
+	                                        sh.position_id
+	                                      ) &&
+	                                      isQualified(
+	                                        sh.user_id,
+	                                        s.position_id
+	                                      );
+	                                    return same || cross;
+	                                  })
+	                                  .map((sh) => (
+	                                    <option key={sh.id} value={sh.id}>
+	                                      {(userNameById[sh.user_id] ||
+	                                        "Unknown")}{" "}
+	                                      � {fmtDateLabel(sh.starts_at)} �{" "}
+	                                      {fmtTime(sh.starts_at)}�{fmtTime(
+	                                        sh.ends_at
+	                                      )}{" "}
+	                                      {positionsById[sh.position_id]?.name
+	                                        ? `� ${
+	                                            positionsById[sh.position_id]?.name
+	                                          }`
+	                                        : ""}
+	                                    </option>
+	                                  ))}
+	                              </select>
+	                            </div>
+	                          )}
+	                        </div>
+	                      )}
+	                    </li>
+	                  );
+	                })}
+	              </ul>
+	            )}
+	          </div>
+	        );
+	      })}
+	    </div>
+	  );
+	}
+	
+	function MyShifts({
+  currentUser,
+  schedule,
+  weekDays,
+  positionsById,
+  users = [],
+  swapIndicators = {},
+  onOfferGiveaway,
+  onProposeTrade,
+  allowCrossPosition = false,
+  isQualified = () => true,
+  unavailability = [],
+  timeOffList = [],
+  showTimeOffChips = false,
+  useDense = false,
+}) {
+  const allShifts = schedule?.shifts || [];
 
-  const weekStart = useMemo(
-    () => (weekDays && weekDays.length ? fmtDate(weekDays[0]) : null),
-    [weekDays]
-  );
+  // Only this user’s shifts
+  const myShifts = allShifts.filter((s) => s.user_id === currentUser.id);
 
-  useEffect(() => {
-    const useApi = isScheduleApiEnabled();
-    if (!useApi || !currentUser || !weekStart) {
-      setRemoteShifts(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams({ weekStart });
-        const res = await scheduleApiRequest(`/api/my/shifts?${params.toString()}`);
-        if (!cancelled) {
-          setRemoteShifts((res && res.data) || []);
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('MyShifts API error, falling back to schedule prop', err);
-        if (!cancelled) {
-          setRemoteShifts(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser?.id, weekStart]);
+  // Only this user as an "employee" row
+  const myEmployees = users.filter((u) => u.id === currentUser.id);
 
-  const myShifts = useMemo(() => {
-    if (Array.isArray(remoteShifts)) return remoteShifts;
-    return (schedule?.shifts || []).filter((s) => s.user_id === currentUser.id);
-  }, [remoteShifts, schedule?.shifts, currentUser?.id]);
-
-  const myEmployees = useMemo(
-    () => (users || []).filter((u) => currentUser && u.id === currentUser.id),
-    [users, currentUser?.id]
-  );
+  if (myEmployees.length === 0) {
+    return (
+      <div className="text-sm text-gray-600">
+        No profile found for this user.
+      </div>
+    );
+  }
 
   return (
     <WeekGrid
@@ -2866,9 +3012,9 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
       weekDays={weekDays}
       shifts={myShifts}
       positionsById={positionsById}
-      unavailability={[]}
-      timeOffList={[]}
-      showTimeOffChips={false}
+      unavailability={unavailability}
+      timeOffList={timeOffList}
+      showTimeOffChips={showTimeOffChips}
       currentUserId={currentUser.id}
       showTileActions={true}
       swapIndicators={swapIndicators}
@@ -2876,10 +3022,16 @@ function MyShifts({ currentUser, schedule, weekDays, positionsById, users = [], 
       onProposeTrade={onProposeTrade}
       allowCrossPosition={allowCrossPosition}
       isQualified={isQualified}
+      useDense={useDense}
+      // NOTE: no onCreate/onEdit/onDelete/onMoveShift here
+      // My view is display + swap actions only
     />
   );
 }
-function TimeOffForm({ onSubmit }) {
+
+	}
+	
+	function TimeOffForm({ onSubmit }) {
   const [from, setFrom] = useState(fmtDate(new Date()));
   const [to, setTo] = useState(fmtDate(new Date()));
   const [notes, setNotes] = useState("");
@@ -2947,7 +3099,7 @@ function MyUnavailabilityEditor({ currentUser, list, onAdd, onUpdate, onDelete }
           {mine.map((ua) => (
             <li key={ua.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}â€“{ua.end_hhmm}</div>
+                <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}–{ua.end_hhmm}</div>
                 {ua.notes && <div className="text-xs text-gray-600">{ua.notes}</div>}
               </div>
               <div className="flex gap-2">
@@ -3028,7 +3180,7 @@ function MyTimeOffList({ data, currentUser }) {
         {mine.map((r) => (
           <li key={r.id} className="flex items-center justify-between py-2 text-sm">
             <div>
-              {r.date_from} â†’ {r.date_to} {r.notes ? `â€¢ ${r.notes}` : ""}
+              {r.date_from} → {r.date_to} {r.notes ? `• ${r.notes}` : ""}
             </div>
             <Pill tone={r.status === "approved" ? "success" : r.status === "denied" ? "danger" : "warn"}>{r.status}</Pill>
           </li>
@@ -3094,7 +3246,7 @@ function UnavailabilityAdmin({ users, list, onAdd, onUpdate, onDelete }) {
               {(grouped[u.id]||[]).filter(ua=>ua.kind==='weekly').map((ua)=> (
                 <li key={ua.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
                   <div>
-                    <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}â€“{ua.end_hhmm}</div>
+                    <div className="font-medium">{WEEK_LABELS[ua.weekday]} {ua.start_hhmm}–{ua.end_hhmm}</div>
                     {ua.notes && <div className="text-xs text-gray-600">{ua.notes}</div>}
                   </div>
                   <div className="flex gap-2">
@@ -3129,7 +3281,7 @@ function NewsFeed({ users, currentUser, posts, onPost, allowPost }) {
         {posts.length===0 && <li className="rounded-2xl border p-3 text-sm text-gray-600">No posts yet.</li>}
         {posts.map(p=> (
           <li key={p.id} className="rounded-2xl border p-3">
-            <div className="text-sm text-gray-500">{byId[p.user_id]?.full_name || 'Unknown'} â€¢ {new Date(p.created_at).toLocaleString()}</div>
+            <div className="text-sm text-gray-500">{byId[p.user_id]?.full_name || 'Unknown'} • {new Date(p.created_at).toLocaleString()}</div>
             <div className="mt-1 whitespace-pre-wrap">{p.body}</div>
           </li>
         ))}
@@ -3176,7 +3328,7 @@ function TasksPanel({ users, currentUser, tasks, templates, onAdd, onSetStatus, 
                   <div>{t.title}</div>
                   <div className="flex items-center gap-2">
                     <select className="rounded-xl border px-2 py-1" onChange={(e)=>{ const userId = e.target.value; if(!userId) return; onAdd(t.title, userId, fmtDate(new Date()), currentUser.id); e.target.value=''; }}>
-                      <option value="">Assignâ€¦</option>
+                      <option value="">Assign…</option>
                       {users.map(u=> <option key={u.id} value={u.id}>{u.full_name}</option>)}
                     </select>
                     <button className="rounded-xl border px-2 py-1" onClick={()=>onDeleteTemplate(t.id)}>Delete</button>
@@ -3196,7 +3348,7 @@ function TasksPanel({ users, currentUser, tasks, templates, onAdd, onSetStatus, 
             <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
                 <div className="font-medium">{t.title}</div>
-                <div className="text-xs text-gray-600">Due {t.due_date} â€¢ Assigned to {users.find(u=>u.id===t.assigned_to)?.full_name || 'â€”'}</div>
+                <div className="text-xs text-gray-600">Due {t.due_date} • Assigned to {users.find(u=>u.id===t.assigned_to)?.full_name || '—'}</div>
               </div>
               <div className="flex items-center gap-2">
                 <select className="rounded-xl border px-2 py-1" value={t.status} onChange={(e)=>onSetStatus(t.id, e.target.value)}>
@@ -3509,8 +3661,8 @@ function RequestsPanel({ users, list, onSetStatus }) {
           {pending.map(r=> (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{byId[r.user_id]?.full_name || 'â€”'}</div>
-                <div className="text-gray-600">{r.date_from} â†’ {r.date_to}{r.notes ? ` â€¢ ${r.notes}` : ''}</div>
+                <div className="font-medium">{byId[r.user_id]?.full_name || '—'}</div>
+                <div className="text-gray-600">{r.date_from} → {r.date_to}{r.notes ? ` • ${r.notes}` : ''}</div>
               </div>
               <div className="flex gap-2">
                 <button className="rounded-xl border px-2 py-1" onClick={()=>onSetStatus(r.id,'approved')}>Approve</button>
@@ -3527,8 +3679,8 @@ function RequestsPanel({ users, list, onSetStatus }) {
           {others.map(r=> (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
               <div>
-                <div className="font-medium">{byId[r.user_id]?.full_name || 'â€”'}</div>
-                <div className="text-gray-600">{r.date_from} â†’ {r.date_to}{r.notes ? ` â€¢ ${r.notes}` : ''}</div>
+                <div className="font-medium">{byId[r.user_id]?.full_name || '—'}</div>
+                <div className="text-gray-600">{r.date_from} → {r.date_to}{r.notes ? ` • ${r.notes}` : ''}</div>
               </div>
               <Pill tone={r.status==='approved' ? 'success' : r.status==='denied' ? 'danger' : 'warn'}>{r.status}</Pill>
             </li>
@@ -3614,7 +3766,7 @@ function EmployeeSwapsPanel({ data, users, currentUser, positionsById, findShift
             <select className="rounded-xl border px-3 py-2" value={formShiftId} onChange={(e)=> setFormShiftId(e.target.value)}>
               {myFutureShifts.map(s => (
                 <option key={s.id} value={s.id}>
-                  {positionsById[s.position_id]?.name || "?"} — {new Date(s.starts_at).toLocaleString()} - {new Date(s.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                  {positionsById[s.position_id]?.name || "?"} � {new Date(s.starts_at).toLocaleString()} - {new Date(s.ends_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
                 </option>
               ))}
             </select>
@@ -3790,7 +3942,7 @@ function SelfTestsPanel() {
       <ul className="text-xs space-y-1">
         {results.map((r, i) => (
           <li key={i} className={r.pass ? 'text-green-700' : 'text-red-700'}>
-            {r.pass ? 'âœ”' : 'âœ˜'} {r.name}{!r.pass && r.error ? ` â€“ ${r.error}` : ''}
+            {r.pass ? '✔' : '✘'} {r.name}{!r.pass && r.error ? ` – ${r.error}` : ''}
           </li>
         ))}
       </ul>
@@ -3927,8 +4079,6 @@ function ShiftUpdateModal({ open, onClose, shift, users, positions, onSave }) {
     </Modal>
   );
 }
-
-
 
 
 
