@@ -33,546 +33,652 @@ export function WeekGrid(props) {
     onDuplicate,
     onMoveShift,
     useDense,
-    cleanUI = false,
+    // accepted but not used; kept for API compatibility with existing calls
+    cleanUI,
   } = props || {};
+
   const isDense = !!(props && (props.useDense ?? props.dense));
+
   const [openShiftMenu, setOpenShiftMenu] = useState(null);
+
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+  const safeShifts = Array.isArray(shifts) ? shifts : [];
+  const safeWeekDays = Array.isArray(weekDays) ? weekDays : [];
+
   const userNameById = useMemo(
-    () => Object.fromEntries((employees || []).map((u) => [u.id, u.full_name])),
-    [employees]
+    () =>
+      Object.fromEntries(
+        safeEmployees.map((u) => [u.id, u.full_name])
+      ),
+    [safeEmployees]
   );
+
   const coworkerShifts = useMemo(
     () =>
       currentUserId
-        ? (shifts || []).filter((sh) => sh.user_id !== currentUserId)
+        ? safeShifts.filter((sh) => sh.user_id !== currentUserId)
         : [],
-    [shifts, currentUserId]
+    [safeShifts, currentUserId]
   );
+
   const byUserUnav = useMemo(() => {
     const map = {};
-    for (const u of employees) map[u.id] = [];
-    for (const ua of unavailability) {
+    for (const u of safeEmployees) map[u.id] = [];
+    for (const ua of unavailability || []) {
       if (map[ua.user_id]) map[ua.user_id].push(ua);
     }
     return map;
-  }, [employees, unavailability]);
+  }, [safeEmployees, unavailability]);
 
   const byUserTimeOff = useMemo(() => {
     const m = {};
-    for (const u of employees) m[u.id] = [];
-    for (const r of timeOffList || []) if (m[r.user_id]) m[r.user_id].push(r);
+    for (const u of safeEmployees) m[u.id] = [];
+    for (const r of timeOffList || []) {
+      if (m[r.user_id]) m[r.user_id].push(r);
+    }
     return m;
-  }, [employees, timeOffList]);
-
-  const baseCellPad = isDense ? "p-1 min-h-[60px]" : "p-2 min-h-24";
-  const bubblePad = isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm";
-
-  const outerClass = cleanUI
-    ? "mt-3 w-full rounded-3xl border border-gray-200 bg-white overflow-hidden"
-    : "w-full";
-
-  const gridClass = cleanUI
-    ? "grid grid-cols-[200px_repeat(7,1fr)_120px]"
-    : "grid grid-cols-[200px_repeat(7,1fr)_120px] border";
-
-  const headerCellClass = cleanUI
-    ? "border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold tracking-wide text-gray-700 text-left"
-    : "p-2 text-center font-semibold bg-gray-50 border-b";
-
-  const bodyCellClass = cleanUI
-    ? `${baseCellPad} border-t border-gray-100 align-top`
-    : `${baseCellPad} border-t border-l align-top`;
-
-  const employeeCellClass = cleanUI
-    ? "border-t border-gray-100 bg-white px-3 py-2 text-sm font-medium text-gray-900"
-    : "border-t px-2 py-2 font-medium";
-
-  const shiftTileClass = cleanUI
-    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm flex items-center justify-between gap-2"
-    : "group relative mb-1 rounded border px-2 py-1 text-xs flex items-center justify-between gap-2";
-
-  const addLinkClass = cleanUI
-    ? "text-[11px] text-gray-500 hover:text-gray-700 underline underline-offset-2"
-    : "text-xs text-gray-700 underline";
-
-  const totalColCellClass = cleanUI
-    ? "border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-right text-gray-800"
-    : "border-t border-l px-2 py-2 text-xs text-right";
-
-  const totalsRowClass = cleanUI
-    ? "border-t border-gray-200 bg-gray-50 text-xs text-gray-700"
-    : "border-t text-xs";
+  }, [safeEmployees, timeOffList]);
 
   return (
-    <div className="relative">
-      <div className="overflow-x-auto">
-        <div className={outerClass}>
-          <div className={gridClass}>
-            <div
-              className={
-                cleanUI
-                  ? `sticky left-0 top-0 z-20 ${headerCellClass}`
-                  : "sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm"
-              }
-            >
-              Employee
-            </div>
-            {weekDays.map((d) => (
-              <div
-                key={String(d)}
-                className={
-                  cleanUI
-                    ? `sticky top-0 z-10 ${headerCellClass}`
-                    : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
-                }
-              >
-                {fmtDateLabel(d)}
-              </div>
-            ))}
-            <div
-              className={
-                cleanUI
-                  ? `sticky top-0 z-10 ${totalColCellClass}`
-                  : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
-              }
-            >
-              Total
-            </div>
+    <div className="space-y-3">
+      {safeEmployees.map((emp) => (
+        <EmployeeScheduleCard
+          key={emp.id}
+          employee={emp}
+          weekDays={safeWeekDays}
+          allShifts={safeShifts}
+          positionsById={positionsById || {}}
+          unavailability={byUserUnav[emp.id] || []}
+          timeOffList={byUserTimeOff[emp.id] || []}
+          showTimeOffChips={showTimeOffChips}
+          onCreate={onCreate}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          currentUserId={currentUserId}
+          showTileActions={showTileActions}
+          swapIndicators={swapIndicators}
+          onOfferGiveaway={onOfferGiveaway}
+          onProposeTrade={onProposeTrade}
+          allowCrossPosition={allowCrossPosition}
+          isQualified={isQualified}
+          onDuplicate={onDuplicate}
+          onMoveShift={onMoveShift}
+          isDense={isDense}
+          openShiftMenu={openShiftMenu}
+          setOpenShiftMenu={setOpenShiftMenu}
+          coworkerShifts={coworkerShifts}
+          userNameById={userNameById}
+        />
+      ))}
+    </div>
+  );
+}
 
-            {employees.map((emp) => (
-              <React.Fragment key={emp.id}>
-                <div className="sticky left-0 z-10 border-t bg-white p-2 font-medium">
-                  {emp.full_name}
-                  <span
-                    className="ml-2 align-middle text-[11px]"
-                    style={{
-                      border: `1px solid ${roleColor(emp.role)}`,
-                      color: roleColor(emp.role),
-                      padding: "2px 8px",
-                      borderRadius: "9999px",
-                    }}
-                  >
-                    {emp.role}
-                  </span>
-                </div>
+function EmployeeScheduleCard(props) {
+  const {
+    employee,
+    weekDays,
+    allShifts,
+    positionsById,
+    unavailability,
+    timeOffList,
+    showTimeOffChips,
+    onCreate,
+    onDelete,
+    onEdit,
+    currentUserId,
+    showTileActions,
+    swapIndicators,
+    onOfferGiveaway,
+    onProposeTrade,
+    allowCrossPosition,
+    isQualified,
+    onDuplicate,
+    onMoveShift,
+    isDense,
+    openShiftMenu,
+    setOpenShiftMenu,
+    coworkerShifts,
+    userNameById,
+  } = props;
 
-                {weekDays.map((day) => {
-                  const dayKey = fmtDateLocal(day);
+  const employeeShifts = (allShifts || []).filter(
+    (s) => s.user_id === employee.id
+  );
 
-                  const dayShifts = shifts.filter(
-                    (s) =>
-                      s.user_id === emp.id &&
-                      fmtDateLocal(s.starts_at) === dayKey
-                  );
+  const totalHoursForEmployee = employeeShifts.reduce(
+    (sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_min),
+    0
+  );
 
-                  const dayUnav = (byUserUnav[emp.id] || []).filter((ua) =>
-                    ua.kind === "date"
-                      ? ua.date === dayKey
-                      : ua.weekday === day.getDay()
-                  );
-
-                  const dayTimeOff = (byUserTimeOff[emp.id] || []).filter((r) =>
-                    isDateWithin(dayKey, r.date_from, r.date_to)
-                  );
-
-                  return (
-                    <div
-                      key={emp.id + dayKey}
-                      className={bodyCellClass}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                      }}
-                      onDrop={(e) => {
-                        const id = e.dataTransfer.getData("text/plain");
-                        if (id) onMoveShift?.(id, emp.id, day);
-                      }}
-                    >
-                      <div className="space-y-2">
-                        {showTimeOffChips &&
-                          dayTimeOff.map((r) => (
-                            <div
-                              key={r.id}
-                              className={`rounded-xl border px-2 py-1 text-xs ${
-                                r.status === "approved"
-                                  ? "border-green-300 bg-green-50 text-green-700"
-                                  : r.status === "pending"
-                                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                                  : "border-gray-300 bg-gray-50 text-gray-700"
-                              }`}
-                            >
-                              Time off {r.date_from}–{r.date_to} ({r.status})
-                              {r.notes ? ` • ${r.notes}` : ""}
-                            </div>
-                          ))}
-
-                        {dayUnav.map((ua) => (
-                          <div
-                            key={ua.id}
-                            className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700"
-                          >
-                            Unavailable {ua.start_hhmm}–{ua.end_hhmm}
-                            {ua.notes ? ` • ${ua.notes}` : ""}
-                          </div>
-                        ))}
-
-                        {dayShifts.map((s) => (
-                          <div
-                            key={s.id}
-                            draggable
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData("text/plain", s.id);
-                              e.dataTransfer.effectAllowed = "move";
-                            }}
-                            className={shiftTileClass}
-                            style={{
-                              borderLeft: `4px solid ${colorForPosition(
-                                s.position_id
-                              )}`,
-                            }}
-                            onClick={() => {
-                              if (
-                                showTileActions &&
-                                currentUserId &&
-                                s.user_id === currentUserId
-                              ) {
-                                setOpenShiftMenu((v) => (v === s.id ? null : s.id));
-                              }
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="font-medium">
-                                {fmtTime(s.starts_at)} – {fmtTime(s.ends_at)}
-                              </div>
-                              <div className="absolute right-1 top-1 hidden gap-1 md:flex md:opacity-0 md:transition md:duration-150 md:group-hover:opacity-100">
-                                {onEdit && (
-                                  <button
-                                    className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEdit(s);
-                                    }}
-                                    aria-label="Edit shift"
-                                    title="Edit"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 20 20"
-                                      fill="currentColor"
-                                      className="h-4 w-4 text-gray-700"
-                                    >
-                                      <path d="M12.316 2.434a1.5 1.5 0 0 1 2.122 0l3.128 3.128a1.5 1.5 0 0 1 0 2.122l-9.17 9.17a2 2 0 0 1-1.106.56l-3.89.557a.75.75 0 0 1-.852-.852l.558-3.89a2 2 0 0 1 .56-1.106l9.172-9.17Zm1.414 1.414L6.56 11.018a.5.5 0 0 0-.14.276l-.29 2.023 2.023-.29a.5.5 0 0 0 .276-.14l7.168-7.168-1.867-1.867Z" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {onEdit && onDelete && (
-                                  <span className="text-gray-300">|</span>
-                                )}
-                                {onEdit && (
-                                  <button
-                                    className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDuplicate?.(s.id);
-                                    }}
-                                    aria-label="Duplicate shift"
-                                    title="Duplicate"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 20 20"
-                                      fill="currentColor"
-                                      className="h-4 w-4 text-gray-700"
-                                    >
-                                      <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h6A1.5 1.5 0 0 1 16 4.5v6A1.5 1.5 0 0 1 14.5 12h-6A1.5 1.5 0 0 1 7 10.5v-6Zm-3 3A1.5 1.5 0 0 1 5.5 6h.5v7a2 2 0 0 0 2 2H15v.5A1.5 1.5 0 0 1 13.5 17h-6A1.5 1.5 0 0 1 6 15.5v-6Z" />
-                                    </svg>
-                                  </button>
-                                )}
-                                {onDelete && (
-                                  <button
-                                    className="rounded border border-gray-200 bg-gray-50 p-1 hover:bg-gray-100"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDelete(s.id);
-                                    }}
-                                    aria-label="Delete shift"
-                                    title="Delete"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 20 20"
-                                      fill="currentColor"
-                                      className="h-4 w-4 text-gray-700"
-                                    >
-                                      <path
-                                        fillRule="evenodd"
-                                        d="M8.75 2A1.75 1.75 0 0 0 7 3.75V4H3.5a.75.75 0 0 0 0 1.5h.548l.862 10.341A2.25 2.25 0 0 0 7.154 18h5.692a2.25 2.25 0 0 0 2.244-2.159L15.952 5.5H16.5a.75.75 0 0 0 0-1.5H13v-.25A1.75 1.75 0 0 0 11.25 2h-2.5Zm1.75 2h-2.5v.25H10.5V4Zm-3.75 3a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7A.75.75 0 0 1 6.75 7Zm6.5 0a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7a.75.75 0 0 1 .75-.75Z"
-                                        clipRule="evenodd"
-                                      />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {/* Mobile overflow menu trigger */}
-                            <button
-                              className="absolute right-1 top-1 rounded p-1 md:hidden"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenShiftMenu((v) =>
-                                  v === s.id ? null : s.id
-                                );
-                              }}
-                              aria-label="More actions"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                                className="h-4 w-4 text-gray-600"
-                              >
-                                <path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
-                              </svg>
-                            </button>
-
-                            {/* Conflict indicators (day-level) */}
-                            {(dayUnav.length > 0 || dayTimeOff.length > 0) && (
-                              <div className="absolute left-1 top-1 flex gap-1 text-[10px]">
-                                {dayUnav.length > 0 && (
-                                  <span className="rounded bg-red-100 px-1 text-red-700">
-                                    UA
-                                  </span>
-                                )}
-                                {dayTimeOff.length > 0 && (
-                                  <span className="rounded bg-amber-100 px-1 text-amber-700">
-                                    TO
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="mt-1">
-                              <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
-                                <span
-                                  className="mr-1 inline-block h-2 w-2 rounded-full"
-                                  style={{
-                                    backgroundColor: colorForPosition(
-                                      s.position_id
-                                    ),
-                                  }}
-                                />
-                                {positionsById[s.position_id]?.name || "?"}
-                              </span>
-                            </div>
-
-                            {(swapIndicators[s.id]?.give ||
-                              swapIndicators[s.id]?.trade) && (
-                              <div className="pointer-events-none absolute right-1 top-1 flex gap-1 text-xs opacity-70">
-                                {swapIndicators[s.id]?.give && (
-                                  <span title="Giveaway">Give</span>
-                                )}
-                                {swapIndicators[s.id]?.trade && (
-                                  <span title="Trade">Trade</span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Mobile overflow menu */}
-                            {openShiftMenu === s.id && (
-                              <div className="absolute right-1 top-6 z-20 rounded-lg border bg-white p-1 text-xs shadow md:hidden">
-                                {onEdit && (
-                                  <button
-                                    className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEdit(s);
-                                      setOpenShiftMenu(null);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                                {onDuplicate && (
-                                  <button
-                                    className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDuplicate(s.id);
-                                      setOpenShiftMenu(null);
-                                    }}
-                                  >
-                                    Duplicate
-                                  </button>
-                                )}
-                                {onDelete && (
-                                  <button
-                                    className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDelete(s.id);
-                                      setOpenShiftMenu(null);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            )}
-
-                            {showTileActions &&
-                              currentUserId &&
-                              s.user_id === currentUserId &&
-                              openShiftMenu === s.id && (
-                                <div className="absolute bottom-1 right-1 z-20 hidden rounded-lg border bg-white p-1 text-xs shadow md:block">
-                                  <button
-                                    className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onOfferGiveaway?.(s.id);
-                                      setOpenShiftMenu(null);
-                                    }}
-                                  >
-                                    Offer Giveaway
-                                  </button>
-                                  <div className="mt-1 grid gap-1">
-                                    <div className="px-2 text-[11px] text-gray-600">
-                                      Propose Trade for:
-                                    </div>
-                                    <select
-                                      className="w-56 rounded border px-2 py-1"
-                                      onChange={(e) => {
-                                        const targetId = e.target.value || "";
-                                        if (!targetId) return;
-                                        e.stopPropagation();
-                                        onProposeTrade?.(s.id, targetId);
-                                        setOpenShiftMenu(null);
-                                      }}
-                                    >
-                                      <option value="">Select coworker shift�?�</option>
-                                      {coworkerShifts
-                                        .filter((sh) => {
-                                          const same =
-                                            sh.position_id === s.position_id;
-                                          const cross =
-                                            allowCrossPosition &&
-                                            isQualified(
-                                              currentUserId,
-                                              sh.position_id
-                                            ) &&
-                                            isQualified(
-                                              sh.user_id,
-                                              s.position_id
-                                            );
-                                          return same || cross;
-                                        })
-                                        .map((sh) => (
-                                          <option key={sh.id} value={sh.id}>
-                                            {(userNameById[sh.user_id] || 'Unknown')} A� {fmtDateLabel(sh.starts_at)} A� {fmtTime(sh.starts_at)}�?"{fmtTime(sh.ends_at)} {positionsById[sh.position_id]?.name ? `A� ${positionsById[sh.position_id]?.name}` : ''}
-                                          </option>
-                                        ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              )}
-                          </div>
-                        ))}
-
-                        <button
-                          className="text-xs underline"
-                          onClick={() => onCreate(emp.id, day)}
-                        >
-                          + add
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="border-l border-t p-2 text-right font-semibold">
-                  {(() => {
-                    const total = (shifts || [])
-                      .filter(
-                        (s) =>
-                          s.user_id === emp.id &&
-                          weekDays.some(
-                            (d) =>
-                              fmtDateLocal(d) === fmtDateLocal(s.starts_at)
-                          )
-                      )
-                      .reduce(
-                        (sum, s) =>
-                          sum +
-                          hoursBetween(
-                            s.starts_at,
-                            s.ends_at,
-                            s.break_min
-                          ),
-                        0
-                      );
-                    return total.toFixed(2) + " h";
-                  })()}
-                </div>
-              </React.Fragment>
-            ))}
-
-            {/* Totals row */}
-            <div
-              className={
-                cleanUI
-                  ? "sticky left-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700"
-                  : "sticky left-0 z-10 border-t bg-gray-50 p-2 font-semibold"
-              }
-            >
-              Totals
-            </div>
-            {weekDays.map((d) => (
-              <div
-                key={"totals" + String(d)}
-                className={
-                  cleanUI
-                    ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
-                    : "border-l border-t p-2 text-right font-semibold"
-                }
-              >
-                {(() => {
-                  const key = fmtDateLocal(d);
-                  const total = (shifts || [])
-                    .filter((s) => fmtDateLocal(s.starts_at) === key)
-                    .reduce(
-                      (sum, s) =>
-                        sum +
-                        hoursBetween(
-                          s.starts_at,
-                          s.ends_at,
-                          s.break_min
-                        ),
-                      0
-                    );
-                  return total.toFixed(2) + " h";
-                })()}
-              </div>
-            ))}
-            <div
-              className={
-                cleanUI
-                  ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
-                  : "border-l border-t p-2 text-right font-semibold"
-              }
-            >
-              {(() => {
-                const total = (shifts || []).reduce(
-                  (sum, s) =>
-                    sum + hoursBetween(s.starts_at, s.ends_at, s.break_min),
-                  0
-                );
-                return total.toFixed(2) + " h";
-              })()}
-            </div>
-          </div>
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-semibold">{employee.full_name}</div>
+          <span
+            className="ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+            style={{
+              border: `1px solid ${roleColor(employee.role)}`,
+              color: roleColor(employee.role),
+            }}
+          >
+            {employee.role}
+          </span>
+        </div>
+        <div className="text-xs text-gray-600">
+          {totalHoursForEmployee.toFixed(2)} h
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-end bg-gradient-to-l from-white/90 to-transparent sm:hidden">
-        <span className="pr-1 text-[10px] font-medium text-gray-400">?</span>
+
+      <div className="divide-y divide-gray-100">
+        {weekDays.map((day) => {
+          const dayKey = fmtDateLocal(day);
+
+          const dayShifts = employeeShifts.filter(
+            (s) => fmtDateLocal(s.starts_at) === dayKey
+          );
+
+          const dayUnav = (unavailability || []).filter((ua) =>
+            ua.kind === "date"
+              ? ua.date === dayKey
+              : ua.weekday === day.getDay()
+          );
+
+          const dayTimeOff = (timeOffList || []).filter((r) =>
+            isDateWithin(dayKey, r.date_from, r.date_to)
+          );
+
+          return (
+            <DayRow
+              key={employee.id + dayKey}
+              day={day}
+              employee={employee}
+              shifts={dayShifts}
+              positionsById={positionsById}
+              unavailability={dayUnav}
+              timeOffList={dayTimeOff}
+              showTimeOffChips={showTimeOffChips}
+              onCreate={onCreate}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              currentUserId={currentUserId}
+              showTileActions={showTileActions}
+              swapIndicators={swapIndicators}
+              onOfferGiveaway={onOfferGiveaway}
+              onProposeTrade={onProposeTrade}
+              allowCrossPosition={allowCrossPosition}
+              isQualified={isQualified}
+              onDuplicate={onDuplicate}
+              onMoveShift={onMoveShift}
+              isDense={isDense}
+              openShiftMenu={openShiftMenu}
+              setOpenShiftMenu={setOpenShiftMenu}
+              coworkerShifts={coworkerShifts}
+              userNameById={userNameById}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
+
+function DayRow(props) {
+  const {
+    day,
+    employee,
+    shifts,
+    positionsById,
+    unavailability,
+    timeOffList,
+    showTimeOffChips,
+    onCreate,
+    onDelete,
+    onEdit,
+    currentUserId,
+    showTileActions,
+    swapIndicators,
+    onOfferGiveaway,
+    onProposeTrade,
+    allowCrossPosition,
+    isQualified,
+    onDuplicate,
+    onMoveShift,
+    isDense,
+    openShiftMenu,
+    setOpenShiftMenu,
+    coworkerShifts,
+    userNameById,
+  } = props;
+
+  const hasShifts = (shifts || []).length > 0;
+  const hasUnav = (unavailability || []).length > 0;
+  const hasTimeOff = (timeOffList || []).length > 0;
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e) => {
+    const id = e.dataTransfer.getData("text/plain");
+    if (id && onMoveShift) {
+      onMoveShift(id, employee.id, day);
+    }
+  };
+
+  return (
+    <div
+      className="flex items-start justify-between gap-3 py-2"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <div className="min-w-[96px] text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {fmtDateLabel(day)}
+      </div>
+      <div className="flex-1 space-y-1">
+        {showTimeOffChips &&
+          (timeOffList || []).map((r) => (
+            <div
+              key={r.id}
+              className={`rounded-xl border px-2 py-1 text-xs ${
+                r.status === "approved"
+                  ? "border-green-300 bg-green-50 text-green-700"
+                  : r.status === "pending"
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : "border-gray-300 bg-gray-50 text-gray-700"
+              }`}
+            >
+              Time off {r.date_from}–{r.date_to} ({r.status})
+              {r.notes ? ` · ${r.notes}` : ""}
+            </div>
+          ))}
+
+        {(unavailability || []).map((ua) => (
+          <div
+            key={ua.id}
+            className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700"
+          >
+            Unavailable {ua.start_hhmm}–{ua.end_hhmm}
+            {ua.notes ? ` · ${ua.notes}` : ""}
+          </div>
+        ))}
+
+        {hasShifts ? (
+          shifts.map((s) => (
+            <ShiftChip
+              key={s.id}
+              shift={s}
+              positionsById={positionsById}
+              hasUnav={hasUnav}
+              hasTimeOff={hasTimeOff}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onDuplicate={onDuplicate}
+              showTileActions={showTileActions}
+              currentUserId={currentUserId}
+              swapIndicators={swapIndicators}
+              onOfferGiveaway={onOfferGiveaway}
+              onProposeTrade={onProposeTrade}
+              allowCrossPosition={allowCrossPosition}
+              isQualified={isQualified}
+              openShiftMenu={openShiftMenu}
+              setOpenShiftMenu={setOpenShiftMenu}
+              coworkerShifts={coworkerShifts}
+              userNameById={userNameById}
+              isDense={isDense}
+            />
+          ))
+        ) : (
+          <div className="text-[11px] text-gray-400">No shifts</div>
+        )}
+      </div>
+
+      {onCreate && (
+        <button
+          className="ml-2 text-[11px] text-gray-500 underline underline-offset-2 hover:text-gray-700"
+          onClick={() => onCreate(employee.id, day)}
+        >
+          + add
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ShiftChip(props) {
+  const {
+    shift,
+    positionsById,
+    hasUnav,
+    hasTimeOff,
+    onEdit,
+    onDelete,
+    onDuplicate,
+    showTileActions,
+    currentUserId,
+    swapIndicators,
+    onOfferGiveaway,
+    onProposeTrade,
+    allowCrossPosition,
+    isQualified,
+    openShiftMenu,
+    setOpenShiftMenu,
+    coworkerShifts,
+    userNameById,
+    isDense,
+  } = props;
+
+  const isCurrentUserShift = !!(
+    currentUserId && shift.user_id === currentUserId
+  );
+  const menuOpen = openShiftMenu === shift.id;
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("text/plain", shift.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleTileClick = () => {
+    if (showTileActions && isCurrentUserShift) {
+      setOpenShiftMenu(menuOpen ? null : shift.id);
+    }
+  };
+
+  const shiftTileClass = isDense
+    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs shadow-sm flex items-center justify-between gap-2"
+    : "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-sm flex items-center justify-between gap-2";
+
+  const availableTradeTargets = (coworkerShifts || []).filter((sh) => {
+    const same = sh.position_id === shift.position_id;
+    const cross =
+      allowCrossPosition &&
+      isQualified(currentUserId, sh.position_id) &&
+      isQualified(sh.user_id, shift.position_id);
+    return same || cross;
+  });
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className={shiftTileClass}
+      style={{
+        borderLeft: `4px solid ${colorForPosition(shift.position_id)}`,
+      }}
+      onClick={handleTileClick}
+    >
+      <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex flex-col">
+          <div className="font-medium">
+            {fmtTime(shift.starts_at)} – {fmtTime(shift.ends_at)}
+          </div>
+          <div className="mt-1">
+            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+              <span
+                className="mr-1 inline-block h-2 w-2 rounded-full"
+                style={{
+                  backgroundColor: colorForPosition(shift.position_id),
+                }}
+              />
+              {positionsById[shift.position_id]?.name || "?"}
+            </span>
+          </div>
+        </div>
+
+        {/* Desktop manager actions */}
+        <div className="relative flex items-start gap-1">
+          {onEdit && (
+            <button
+              className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(shift);
+              }}
+              aria-label="Edit shift"
+              title="Edit"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path d="M12.316 2.434a1.5 1.5 0 0 1 2.122 0l3.128 3.128a1.5 1.5 0 0 1 0 2.122l-9.17 9.17a2 2 0 0 1-1.106.56l-3.89.557a.75.75 0 0 1-.852-.852l.558-3.89a2 2 0 0 1 .56-1.106l9.172-9.17Zm1.414 1.414L6.56 11.018a.5.5 0 0 0-.14.276l-.29 2.023 2.023-.29a.5.5 0 0 0 .276-.14l7.168-7.168-1.867-1.867Z" />
+              </svg>
+            </button>
+          )}
+          {onDuplicate && (
+            <button
+              className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate(shift.id);
+              }}
+              aria-label="Duplicate shift"
+              title="Duplicate"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h6A1.5 1.5 0 0 1 16 4.5v6A1.5 1.5 0 0 1 14.5 12h-6A1.5 1.5 0 0 1 7 10.5v-6Zm-3 3A1.5 1.5 0 0 1 5.5 6h.5v7a2 2 0 0 0 2 2H15v.5A1.5 1.5 0 0 1 13.5 17h-6A1.5 1.5 0 0 1 6 15.5v-6Z" />
+              </svg>
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(shift.id);
+              }}
+              aria-label="Delete shift"
+              title="Delete"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.75 2A1.75 1.75 0 0 0 7 3.75V4H3.5a.75.75 0 0 0 0 1.5h.548l.862 10.341A2.25 2.25 0 0 0 7.154 18h5.692a2.25 2.25 0 0 0 2.244-2.159L15.952 5.5H16.5a.75.75 0 0 0 0-1.5H13v-.25A1.75 1.75 0 0 0 11.25 2h-2.5Zm1.75 2h-2.5v.25H10.5V4Zm-3.75 3a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7A.75.75 0 0 1 6.75 7Zm6.5 0a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-1.5 0v-7a.75.75 0 0 1 .75-.75Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          )}
+
+          {/* Mobile overflow trigger for manager actions */}
+          {(onEdit || onDelete || onDuplicate) && (
+            <button
+              className="inline-flex rounded p-1 md:hidden"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenShiftMenu(menuOpen ? null : shift.id);
+              }}
+              aria-label="More actions"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 text-gray-600"
+              >
+                <path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Day-level UA/TO flags */}
+      {(hasUnav || hasTimeOff) && (
+        <div className="mt-1 flex gap-1 text-[10px]">
+          {hasUnav && (
+            <span className="rounded bg-red-100 px-1 text-red-700">UA</span>
+          )}
+          {hasTimeOff && (
+            <span className="rounded bg-amber-100 px-1 text-amber-700">
+              TO
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Swap indicators for this shift */}
+      {(swapIndicators[shift.id]?.give ||
+        swapIndicators[shift.id]?.trade) && (
+        <div className="mt-1 flex gap-1 text-xs text-gray-600">
+          {swapIndicators[shift.id]?.give && (
+            <span title="Giveaway">Give</span>
+          )}
+          {swapIndicators[shift.id]?.trade && (
+            <span title="Trade">Trade</span>
+          )}
+        </div>
+      )}
+
+      {/* Employee swap actions (desktop) */}
+      {showTileActions && isCurrentUserShift && menuOpen && (
+        <div className="mt-2 hidden rounded-lg border bg-white p-2 text-xs shadow md:block">
+          <button
+            className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOfferGiveaway?.(shift.id);
+              setOpenShiftMenu(null);
+            }}
+          >
+            Offer Giveaway
+          </button>
+          <div className="mt-1 grid gap-1">
+            <div className="px-2 text-[11px] text-gray-600">
+              Propose Trade for:
+            </div>
+            <select
+              className="w-56 rounded border px-2 py-1"
+              onChange={(e) => {
+                const targetId = e.target.value || "";
+                if (!targetId) return;
+                e.stopPropagation();
+                onProposeTrade?.(shift.id, targetId);
+                setOpenShiftMenu(null);
+              }}
+            >
+              <option value="">Select coworker shift…</option>
+              {availableTradeTargets.map((sh) => (
+                <option key={sh.id} value={sh.id}>
+                  {(userNameById[sh.user_id] || "Unknown") +
+                    " · " +
+                    fmtDateLabel(sh.starts_at) +
+                    " · " +
+                    fmtTime(sh.starts_at) +
+                    "–" +
+                    fmtTime(sh.ends_at) +
+                    (positionsById[sh.position_id]?.name
+                      ? " · " + positionsById[sh.position_id].name
+                      : "")}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile combined overflow menu (manager + employee actions) */}
+      {menuOpen && (
+        <div className="absolute right-1 top-7 z-20 w-48 rounded-lg border bg-white p-1 text-xs shadow md:hidden">
+          {onEdit && (
+            <button
+              className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(shift);
+                setOpenShiftMenu(null);
+              }}
+            >
+              Edit
+            </button>
+          )}
+          {onDuplicate && (
+            <button
+              className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate(shift.id);
+                setOpenShiftMenu(null);
+              }}
+            >
+              Duplicate
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(shift.id);
+                setOpenShiftMenu(null);
+              }}
+            >
+              Delete
+            </button>
+          )}
+
+          {showTileActions && isCurrentUserShift && (
+            <>
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOfferGiveaway?.(shift.id);
+                  setOpenShiftMenu(null);
+                }}
+              >
+                Offer Giveaway
+              </button>
+              {availableTradeTargets.length > 0 && (
+                <div className="mt-1">
+                  <div className="px-2 text-[11px] text-gray-600">
+                    Propose Trade for:
+                  </div>
+                  <select
+                    className="mt-1 w-full rounded border px-2 py-1"
+                    onChange={(e) => {
+                      const targetId = e.target.value || "";
+                      if (!targetId) return;
+                      e.stopPropagation();
+                      onProposeTrade?.(shift.id, targetId);
+                      setOpenShiftMenu(null);
+                    }}
+                  >
+                    <option value="">Select shift…</option>
+                    {availableTradeTargets.map((sh) => (
+                      <option key={sh.id} value={sh.id}>
+                        {(userNameById[sh.user_id] || "Unknown") +
+                          " · " +
+                          fmtDateLabel(sh.starts_at) +
+                          " · " +
+                          fmtTime(sh.starts_at) +
+                          "–" +
+                          fmtTime(sh.ends_at)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
