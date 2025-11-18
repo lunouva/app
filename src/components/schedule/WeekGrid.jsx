@@ -80,36 +80,38 @@ export function WeekGrid(props) {
   }, [safeEmployees, timeOffList]);
 
   return (
-    <div className="space-y-3">
-      {safeEmployees.map((emp) => (
-        <EmployeeScheduleCard
-          key={emp.id}
-          employee={emp}
-          weekDays={safeWeekDays}
-          allShifts={safeShifts}
-          positionsById={positionsById || {}}
-          unavailability={byUserUnav[emp.id] || []}
-          timeOffList={byUserTimeOff[emp.id] || []}
-          showTimeOffChips={showTimeOffChips}
-          onCreate={onCreate}
-          onDelete={onDelete}
-          onEdit={onEdit}
-          currentUserId={currentUserId}
-          showTileActions={showTileActions}
-          swapIndicators={swapIndicators}
-          onOfferGiveaway={onOfferGiveaway}
-          onProposeTrade={onProposeTrade}
-          allowCrossPosition={allowCrossPosition}
-          isQualified={isQualified}
-          onDuplicate={onDuplicate}
-          onMoveShift={onMoveShift}
-          isDense={isDense}
-          openShiftMenu={openShiftMenu}
-          setOpenShiftMenu={setOpenShiftMenu}
-          coworkerShifts={coworkerShifts}
-          userNameById={userNameById}
-        />
-      ))}
+    <div className="rounded-3xl border border-gray-200 bg-white shadow-sm p-3">
+      <div className="space-y-3">
+        {safeEmployees.map((emp) => (
+          <EmployeeScheduleCard
+            key={emp.id}
+            employee={emp}
+            weekDays={safeWeekDays}
+            allShifts={safeShifts}
+            positionsById={positionsById || {}}
+            unavailability={byUserUnav[emp.id] || []}
+            timeOffList={byUserTimeOff[emp.id] || []}
+            showTimeOffChips={showTimeOffChips}
+            onCreate={onCreate}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            currentUserId={currentUserId}
+            showTileActions={showTileActions}
+            swapIndicators={swapIndicators}
+            onOfferGiveaway={onOfferGiveaway}
+            onProposeTrade={onProposeTrade}
+            allowCrossPosition={allowCrossPosition}
+            isQualified={isQualified}
+            onDuplicate={onDuplicate}
+            onMoveShift={onMoveShift}
+            isDense={isDense}
+            openShiftMenu={openShiftMenu}
+            setOpenShiftMenu={setOpenShiftMenu}
+            coworkerShifts={coworkerShifts}
+            userNameById={userNameById}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -152,10 +154,10 @@ function EmployeeScheduleCard(props) {
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 odd:bg-gray-50">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="text-sm font-semibold">{employee.full_name}</div>
+          <div className="text-sm font-semibold text-gray-900">{employee.full_name}</div>
           <span
             className="ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
             style={{
@@ -166,7 +168,7 @@ function EmployeeScheduleCard(props) {
             {employee.role}
           </span>
         </div>
-        <div className="text-xs text-gray-600">
+        <div className="text-xs font-medium text-gray-600">
           {totalHoursForEmployee.toFixed(2)} h
         </div>
       </div>
@@ -277,7 +279,7 @@ function DayRow(props) {
       <div className="min-w-[96px] text-xs font-semibold uppercase tracking-wide text-gray-500">
         {fmtDateLabel(day)}
       </div>
-      <div className="flex-1 space-y-1">
+      <div className="flex-1 space-y-1 text-xs text-gray-700">
         {showTimeOffChips &&
           (timeOffList || []).map((r) => (
             <div
@@ -386,9 +388,12 @@ function ShiftChip(props) {
     }
   };
 
+  const shiftBase =
+    "group relative mb-1 rounded-xl border border-gray-200 bg-white/80 text-xs shadow-[0_1px_1px_rgba(0,0,0,0.03)] transition hover:bg-gray-50 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2";
+
   const shiftTileClass = isDense
-    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs shadow-sm flex items-center justify-between gap-2"
-    : "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm shadow-sm flex items-center justify-between gap-2";
+    ? `${shiftBase} px-2 py-1`
+    : `${shiftBase} px-2.5 py-1.5`;
 
   const availableTradeTargets = (coworkerShifts || []).filter((sh) => {
     const same = sh.position_id === shift.position_id;
@@ -681,4 +686,3 @@ function ShiftChip(props) {
     </div>
   );
 }
-
