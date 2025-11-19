@@ -80,7 +80,7 @@ export function WeekGrid(props) {
   }, [safeEmployees, timeOffList]);
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white shadow-sm p-3">
+    <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
       <div className="space-y-3">
         {safeEmployees.map((emp) => (
           <EmployeeScheduleCard
@@ -154,8 +154,8 @@ function EmployeeScheduleCard(props) {
   );
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 odd:bg-gray-50">
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3 odd:bg-gray-50">
+      <div className="sticky top-0 z-20 mb-2 flex items-center justify-between gap-2 bg-white/90">
         <div className="flex items-center gap-2">
           <div className="text-sm font-semibold text-gray-900">{employee.full_name}</div>
           <span
@@ -272,24 +272,24 @@ function DayRow(props) {
 
   return (
     <div
-      className="flex items-start justify-between gap-3 py-2"
+      className="flex items-start justify-between gap-4 px-3 py-2.5"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="min-w-[96px] text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="sticky left-0 z-10 min-w-[96px] pr-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 bg-white">
         {fmtDateLabel(day)}
       </div>
-      <div className="flex-1 space-y-1 text-xs text-gray-700">
+      <div className="flex-1 space-y-1.5 text-xs text-gray-700">
         {showTimeOffChips &&
           (timeOffList || []).map((r) => (
             <div
               key={r.id}
               className={`rounded-xl border px-2 py-1 text-xs ${
                 r.status === "approved"
-                  ? "border-green-300 bg-green-50 text-green-700"
+                  ? "border-green-200 bg-green-50 text-green-700"
                   : r.status === "pending"
-                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : "border-gray-300 bg-gray-50 text-gray-700"
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-gray-200 bg-gray-50 text-gray-700"
               }`}
             >
               Time off {r.date_from}–{r.date_to} ({r.status})
@@ -300,7 +300,7 @@ function DayRow(props) {
         {(unavailability || []).map((ua) => (
           <div
             key={ua.id}
-            className="rounded-xl border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700"
+            className="rounded-xl border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700"
           >
             Unavailable {ua.start_hhmm}–{ua.end_hhmm}
             {ua.notes ? ` · ${ua.notes}` : ""}
@@ -551,7 +551,7 @@ function ShiftChip(props) {
 
       {/* Employee swap actions (desktop) */}
       {showTileActions && isCurrentUserShift && menuOpen && (
-        <div className="mt-2 hidden rounded-lg border bg-white p-2 text-xs shadow md:block">
+        <div className="mt-2 hidden rounded-lg border border-gray-200 bg-white p-2 text-xs shadow md:block">
           <button
             className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
             onClick={(e) => {
@@ -567,7 +567,7 @@ function ShiftChip(props) {
               Propose Trade for:
             </div>
             <select
-              className="w-56 rounded border px-2 py-1"
+              className="w-56 rounded border border-gray-200 px-2 py-1"
               onChange={(e) => {
                 const targetId = e.target.value || "";
                 if (!targetId) return;
@@ -598,7 +598,7 @@ function ShiftChip(props) {
 
       {/* Mobile combined overflow menu (manager + employee actions) */}
       {menuOpen && (
-        <div className="absolute right-1 top-7 z-20 w-48 rounded-lg border bg-white p-1 text-xs shadow md:hidden">
+        <div className="absolute right-1 top-7 z-20 w-48 rounded-lg border border-gray-200 bg-white p-1 text-xs shadow md:hidden">
           {onEdit && (
             <button
               className="block w-full rounded px-2 py-1 text-left hover:bg-gray-50"
@@ -655,7 +655,7 @@ function ShiftChip(props) {
                     Propose Trade for:
                   </div>
                   <select
-                    className="mt-1 w-full rounded border px-2 py-1"
+                    className="mt-1 w-full rounded border border-gray-200 px-2 py-1"
                     onChange={(e) => {
                       const targetId = e.target.value || "";
                       if (!targetId) return;
