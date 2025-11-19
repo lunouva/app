@@ -81,7 +81,7 @@ export function WeekGrid(props) {
 
   return (
     <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {safeEmployees.map((emp) => (
           <EmployeeScheduleCard
             key={emp.id}
@@ -154,8 +154,8 @@ function EmployeeScheduleCard(props) {
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white/80 px-4 py-3 odd:bg-gray-50">
-      <div className="sticky top-0 z-20 mb-2 flex items-center justify-between gap-2 bg-white/90">
+    <div className="rounded-2xl border border-gray-100 bg-white/80 px-4 py-3 odd:bg-gray-50">
+      <div className="sticky top-0 z-20 mb-2 flex items-center justify-between gap-2 bg-white">
         <div className="flex items-center gap-2">
           <div className="text-sm font-semibold text-gray-900">{employee.full_name}</div>
           <span
@@ -276,7 +276,7 @@ function DayRow(props) {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="sticky left-0 z-10 min-w-[96px] pr-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 bg-white">
+      <div className="sticky left-0 z-20 min-w-[96px] pr-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 bg-white">
         {fmtDateLabel(day)}
       </div>
       <div className="flex-1 space-y-1.5 text-xs text-gray-700">
@@ -389,7 +389,7 @@ function ShiftChip(props) {
   };
 
   const shiftBase =
-    "group relative mb-1 rounded-xl border border-gray-200 bg-white/80 text-xs shadow-[0_1px_1px_rgba(0,0,0,0.03)] transition hover:bg-gray-50 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2";
+    "group relative mb-1 rounded-xl border border-gray-200 bg-white/80 text-xs shadow-[0_1px_1px_rgba(0,0,0,0.03)] transition hover:bg-gray-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2";
 
   const shiftTileClass = isDense
     ? `${shiftBase} px-2 py-1`
