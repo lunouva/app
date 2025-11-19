@@ -64,11 +64,11 @@ export function WeekGrid(props) {
     return m;
   }, [employees, timeOffList]);
 
-  const baseCellPad = isDense ? "p-1 min-h-[60px]" : "p-2 min-h-24";
+  const baseCellPad = isDense ? "px-2 py-1.5 min-h-[60px]" : "px-3 py-2 min-h-24";
   const bubblePad = isDense ? "px-2 py-1 text-xs" : "px-2.5 py-2 text-sm";
 
   const outerClass = cleanUI
-    ? "mt-3 w-full rounded-3xl border border-gray-200 bg-white overflow-hidden"
+    ? "mt-3 w-full rounded-2xl border border-gray-200 bg-white shadow-sm p-4 overflow-hidden"
     : "w-full";
 
   const gridClass = cleanUI
@@ -76,27 +76,27 @@ export function WeekGrid(props) {
     : "grid grid-cols-[200px_repeat(7,1fr)_120px] border";
 
   const headerCellClass = cleanUI
-    ? "border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold tracking-wide text-gray-700 text-left"
+    ? "border-b border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-600"
     : "p-2 text-center font-semibold bg-gray-50 border-b";
 
   const bodyCellClass = cleanUI
-    ? `${baseCellPad} border-t border-gray-100 align-top`
+    ? `${baseCellPad} border-b border-gray-100 align-top hover:bg-gray-50 transition-colors`
     : `${baseCellPad} border-t border-l align-top`;
 
   const employeeCellClass = cleanUI
-    ? "border-t border-gray-100 bg-white px-3 py-2 text-sm font-medium text-gray-900"
+    ? "border-t border-gray-100 border-r border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700"
     : "border-t px-2 py-2 font-medium";
 
   const shiftTileClass = cleanUI
-    ? "group relative mb-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm flex items-center justify-between gap-2"
+    ? "group relative mb-1 rounded-lg border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 flex items-center justify-between gap-2 transition hover:bg-gray-200"
     : "group relative mb-1 rounded border px-2 py-1 text-xs flex items-center justify-between gap-2";
 
   const addLinkClass = cleanUI
-    ? "text-[11px] text-gray-500 hover:text-gray-700 underline underline-offset-2"
+    ? "text-[11px] text-gray-400 underline-offset-2 hover:text-gray-700 hover:underline"
     : "text-xs text-gray-700 underline";
 
   const totalColCellClass = cleanUI
-    ? "border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs font-semibold text-right text-gray-800"
+    ? "border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-right text-gray-700"
     : "border-t border-l px-2 py-2 text-xs text-right";
 
   const totalsRowClass = cleanUI
@@ -111,7 +111,7 @@ export function WeekGrid(props) {
             <div
               className={
                 cleanUI
-                  ? `sticky left-0 top-0 z-20 ${headerCellClass}`
+                  ? `sticky left-0 top-0 z-20 border-r border-gray-200 text-left ${headerCellClass}`
                   : "sticky left-0 top-0 z-20 bg-gray-50 p-2 font-semibold shadow-sm"
               }
             >
@@ -122,7 +122,7 @@ export function WeekGrid(props) {
                 key={String(d)}
                 className={
                   cleanUI
-                    ? `sticky top-0 z-10 ${headerCellClass}`
+                    ? `sticky top-0 z-20 text-center ${headerCellClass}`
                     : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
                 }
               >
@@ -132,16 +132,20 @@ export function WeekGrid(props) {
             <div
               className={
                 cleanUI
-                  ? `sticky top-0 z-10 ${totalColCellClass}`
+                  ? `sticky top-0 z-20 ${totalColCellClass}`
                   : "sticky top-0 z-10 bg-gray-50 p-2 text-center font-semibold shadow-sm"
               }
             >
               Total
             </div>
 
-            {employees.map((emp) => (
+            {employees.map((emp, rowIndex) => {
+              const rowStripeClass = rowIndex % 2 === 1 ? "bg-gray-50" : "";
+              return (
               <React.Fragment key={emp.id}>
-                <div className="sticky left-0 z-10 border-t bg-white p-2 font-medium">
+                <div
+                  className={`sticky left-0 z-10 border-t border-gray-100 border-r border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 ${rowStripeClass}`}
+                >
                   {emp.full_name}
                   <span
                     className="ml-2 align-middle text-[11px]"
@@ -178,7 +182,7 @@ export function WeekGrid(props) {
                   return (
                     <div
                       key={emp.id + dayKey}
-                      className={bodyCellClass}
+                      className={`${bodyCellClass} ${rowStripeClass}`}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "move";
@@ -478,7 +482,7 @@ export function WeekGrid(props) {
                         ))}
 
                         <button
-                          className="text-xs underline"
+                          className={addLinkClass}
                           onClick={() => onCreate(emp.id, day)}
                         >
                           + add
@@ -487,7 +491,13 @@ export function WeekGrid(props) {
                     </div>
                   );
                 })}
-                <div className="border-l border-t p-2 text-right font-semibold">
+                <div
+                  className={
+                    cleanUI
+                      ? `border-t border-gray-200 bg-gray-50 px-3 py-2 text-right text-xs font-semibold text-gray-700 ${rowStripeClass}`
+                      : "border-l border-t p-2 text-right font-semibold"
+                  }
+                >
                   {(() => {
                     const total = (shifts || [])
                       .filter(
@@ -512,7 +522,7 @@ export function WeekGrid(props) {
                   })()}
                 </div>
               </React.Fragment>
-            ))}
+            )})}
 
             {/* Totals row */}
             <div
@@ -529,7 +539,7 @@ export function WeekGrid(props) {
                 key={"totals" + String(d)}
                 className={
                   cleanUI
-                    ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
+                    ? "border-t border-gray-200 bg-gray-50 px-3 py-2 text-right text-xs font-semibold text-gray-700"
                     : "border-l border-t p-2 text-right font-semibold"
                 }
               >
@@ -554,7 +564,7 @@ export function WeekGrid(props) {
             <div
               className={
                 cleanUI
-                  ? "border-t border-gray-100 px-3 py-2 text-right text-xs font-semibold text-gray-700"
+                  ? "border-t border-gray-200 bg-gray-50 px-3 py-2 text-right text-xs font-semibold text-gray-700"
                   : "border-l border-t p-2 text-right font-semibold"
               }
             >
