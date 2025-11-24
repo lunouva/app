@@ -501,7 +501,7 @@ function ShiftChip(props) {
           <div className="ml-1 flex shrink-0 items-center gap-1">
             {onEdit && (
               <button
-                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(shift);
@@ -513,7 +513,7 @@ function ShiftChip(props) {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="h-4 w-4"
+                  className="h-3 w-3"
                 >
                   <path d="M12.316 2.434a1.5 1.5 0 0 1 2.122 0l3.128 3.128a1.5 1.5 0 0 1 0 2.122l-9.17 9.17a2 2 0 0 1-1.106.56l-3.89.557a.75.75 0 0 1-.852-.852l.558-3.89a2 2 0 0 1 .56-1.106l9.172-9.17Zm1.414 1.414L6.56 11.018a.5.5 0 0 0-.14.276l-.29 2.023 2.023-.29a.5.5 0 0 0 .276-.14l7.168-7.168-1.867-1.867Z" />
                 </svg>
@@ -521,7 +521,7 @@ function ShiftChip(props) {
             )}
             {onDuplicate && (
               <button
-                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDuplicate(shift.id);
@@ -533,7 +533,7 @@ function ShiftChip(props) {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="h-4 w-4"
+                  className="h-3 w-3"
                 >
                   <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h6A1.5 1.5 0 0 1 16 4.5v6A1.5 1.5 0 0 1 14.5 12h-6A1.5 1.5 0 0 1 7 10.5v-6Zm-3 3A1.5 1.5 0 0 1 5.5 6h.5v7a2 2 0 0 0 2 2H15v.5A1.5 1.5 0 0 1 13.5 17h-6A1.5 1.5 0 0 1 6 15.5v-6Z" />
                 </svg>
@@ -541,7 +541,7 @@ function ShiftChip(props) {
             )}
             {onDelete && (
               <button
-                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(shift.id);
@@ -553,7 +553,7 @@ function ShiftChip(props) {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="h-4 w-4"
+                  className="h-3 w-3"
                 >
                   <path
                     fillRule="evenodd"
