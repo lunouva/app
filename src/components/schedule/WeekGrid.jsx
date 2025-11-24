@@ -118,7 +118,7 @@ export function WeekGrid(props) {
     <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
       <div className="relative">
         <div className="overflow-x-auto">
-          <div className="grid min-w-[960px] grid-cols-[200px_repeat(7,minmax(0,1fr))]">
+          <div className="grid min-w-[960px] grid-cols-[200px_repeat(7,minmax(0,1fr))] items-stretch">
             <WeekHeaderRow weekDays={safeWeekDays} />
             {safeEmployees.map((emp, idx) => (
               <EmployeeRow
@@ -348,7 +348,7 @@ function ShiftCell(props) {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="flex h-full min-h-[64px] flex-col gap-1 px-2 py-2">
+      <div className="flex h-full min-h-[80px] flex-col gap-1 px-2 py-2">
         {showTimeOffChips &&
           (timeOffList || []).map((r) => (
             <div
