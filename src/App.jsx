@@ -1669,10 +1669,10 @@ function InnerApp(props) {
           </div>
           <div className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <span className="text-gray-600">Week</span>
-            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>â—€</button>
+            <button className="rounded-lg border px-2 py-1" title="Prev week" onClick={()=>shiftWeek(-1)}>‹</button>
             <input type="date" value={weekStart} onChange={(e) => setWeekStart(fmtDate(startOfWeek(e.target.value, flags.weekStartsOn)))} className="outline-none" />
             <button className="rounded-lg border px-2 py-1" title="Jump to current week" onClick={()=> setWeekStart(fmtDate(startOfWeek(today(), flags.weekStartsOn)))}>Today</button>
-            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>â–¶</button>
+            <button className="rounded-lg border px-2 py-1" title="Next week" onClick={()=>shiftWeek(1)}>›</button>
           </div>
           <label className="hidden sm:flex items-center gap-2 rounded-xl border px-3 py-2 text-sm">
             <input type="checkbox" checked={safeDense} onChange={(e)=> setDense && setDense(e.target.checked)} />
