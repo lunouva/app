@@ -501,7 +501,7 @@ function ShiftChip(props) {
           <div className="ml-1 flex shrink-0 items-center gap-1">
             {onEdit && (
               <button
-                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
+                className="md:inline-flex h-4 w-4 items-center justify-center rounded text-gray-500 transition-opacity duration-150 group-hover:opacity-100 group-hover:text-gray-700 opacity-0 pointer-events-none group-hover:pointer-events-auto"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(shift);
@@ -521,7 +521,7 @@ function ShiftChip(props) {
             )}
             {onDuplicate && (
               <button
-                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
+                className="md:inline-flex h-4 w-4 items-center justify-center rounded text-gray-500 transition-opacity duration-150 group-hover:opacity-100 hover:text-gray-700 opacity-0 pointer-events-none group-hover:pointer-events-auto"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDuplicate(shift.id);
@@ -541,7 +541,7 @@ function ShiftChip(props) {
             )}
             {onDelete && (
               <button
-                className="hidden h-4 w-4 items-center justify-center rounded text-gray-500 hover:text-gray-700 md:inline-flex"
+                className="md:inline-flex h-4 w-4 items-center justify-center rounded text-gray-500 transition-opacity duration-150 group-hover:opacity-100 hover:text-gray-700 opacity-0 pointer-events-none group-hover:pointer-events-auto"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(shift.id);
