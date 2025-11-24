@@ -501,7 +501,7 @@ function ShiftChip(props) {
           <div className="ml-1 flex shrink-0 items-center gap-1">
             {onEdit && (
               <button
-                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(shift);
@@ -521,7 +521,7 @@ function ShiftChip(props) {
             )}
             {onDuplicate && (
               <button
-                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDuplicate(shift.id);
@@ -541,7 +541,7 @@ function ShiftChip(props) {
             )}
             {onDelete && (
               <button
-                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-5 w-5 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(shift.id);
@@ -566,7 +566,7 @@ function ShiftChip(props) {
 
             {(hasManagerActions || hasEmployeeActions) && (
               <button
-                className="inline-flex h-6 w-6 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100 md:hidden"
+                className="inline-flex h-5 w-5 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100 md:hidden"
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpenShiftMenu(menuOpen ? null : shift.id);
