@@ -114,7 +114,7 @@ export function WeekGrid(props) {
     return totals;
   }, [safeShifts, safeWeekDays]);
 
-  const baseCellPad = isDense ? "px-2 py-2 min-h-[64px]" : "px-3 py-3 min-h-20";
+  const cellPadding = isDense ? "p-2" : "p-3";
 
   return (
     <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
@@ -151,7 +151,7 @@ export function WeekGrid(props) {
                 userNameById={userNameById}
                 rowIndex={idx}
                 weeklyHours={hoursByEmployee[emp.id] || 0}
-                baseCellPad={baseCellPad}
+                cellPadding={cellPadding}
               />
             ))}
           </div>
@@ -222,7 +222,7 @@ function EmployeeRow(props) {
     userNameById,
     rowIndex,
     weeklyHours,
-    baseCellPad,
+    cellPadding,
   } = props;
 
   const rowTint = rowIndex % 2 === 1 ? "bg-gray-50/70" : "bg-white";
@@ -294,7 +294,7 @@ function EmployeeRow(props) {
             userNameById={userNameById}
             positionsById={positionsById}
             rowTint={rowTint}
-            baseCellPad={baseCellPad}
+            cellPadding={cellPadding}
           />
         );
       })}
@@ -329,7 +329,7 @@ function ShiftCell(props) {
     userNameById,
     positionsById,
     rowTint,
-    baseCellPad,
+    cellPadding,
   } = props;
 
   const hasUnav = (unavailability || []).length > 0;
@@ -350,11 +350,11 @@ function ShiftCell(props) {
 
   return (
     <div
-      className={`align-top transition-colors hover:bg-slate-50 ${rowTint} ${baseCellPad} border-b border-l border-gray-100`}
+      className={`align-top border-b border-l border-gray-100 ${rowTint}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="space-y-1.5">
+      <div className={`flex h-full flex-col gap-1 ${cellPadding}`}>
         {showTimeOffChips &&
           (timeOffList || []).map((r) => (
             <div
@@ -460,7 +460,7 @@ function ShiftChip(props) {
   });
 
   const shiftBase =
-    "group relative mb-1 rounded-xl border border-gray-200 bg-white/80 text-xs shadow-[0_1px_1px_rgba(0,0,0,0.03)] transition hover:bg-gray-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2";
+    "group relative mb-1 inline-flex w-full max-w-full items-center justify-between gap-1 overflow-hidden rounded-lg border border-gray-200 bg-white/80 text-xs shadow-[0_1px_1px_rgba(0,0,0,0.03)] transition hover:bg-gray-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
   const shiftTileClass = isDense ? `${shiftBase} px-2 py-1` : `${shiftBase} px-2.5 py-1.5`;
 
   const handleDragStart = (e) => {
@@ -488,26 +488,26 @@ function ShiftChip(props) {
         }}
         onClick={handleTileClick}
       >
-        <div className="flex w-full items-center justify-between gap-2">
-          <div className="flex flex-col">
-            <div className="font-medium">{timeRange(shift.starts_at, shift.ends_at)}</div>
-            <div className="mt-1">
-              <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
-                <span
-                  className="mr-1 inline-block h-2 w-2 rounded-full"
-                  style={{
-                    backgroundColor: colorForPosition(shift.position_id),
-                  }}
-                />
+        <div className="flex w-full max-w-full items-center gap-2 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="truncate font-medium">{timeRange(shift.starts_at, shift.ends_at)}</div>
+            <div className="flex min-w-0 items-center gap-1 text-[11px] text-gray-500">
+              <span
+                className="h-2 w-2 rounded-full flex-shrink-0"
+                style={{
+                  backgroundColor: colorForPosition(shift.position_id),
+                }}
+              />
+              <span className="truncate">
                 {positionsById[shift.position_id]?.name || "Shift"}
               </span>
             </div>
           </div>
 
-          <div className="relative flex items-start gap-1">
+          <div className="ml-1 flex shrink-0 items-center gap-1">
             {onEdit && (
               <button
-                className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(shift);
@@ -527,7 +527,7 @@ function ShiftChip(props) {
             )}
             {onDuplicate && (
               <button
-                className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDuplicate(shift.id);
@@ -547,7 +547,7 @@ function ShiftChip(props) {
             )}
             {onDelete && (
               <button
-                className="hidden rounded border border-gray-200 bg-gray-50 p-1 text-gray-700 hover:bg-gray-100 md:inline-flex"
+                className="hidden h-6 w-6 items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 md:inline-flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(shift.id);
@@ -572,7 +572,7 @@ function ShiftChip(props) {
 
             {(hasManagerActions || hasEmployeeActions) && (
               <button
-                className="inline-flex rounded p-1 md:hidden"
+                className="inline-flex h-6 w-6 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100 md:hidden"
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpenShiftMenu(menuOpen ? null : shift.id);
@@ -583,7 +583,7 @@ function ShiftChip(props) {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="h-4 w-4 text-gray-600"
+                  className="h-4 w-4"
                 >
                   <path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
                 </svg>
