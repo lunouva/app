@@ -454,7 +454,7 @@ function ShiftChip(props) {
   });
 
   const shiftBase =
-    "group relative mb-1 inline-flex w-full max-w-full items-center justify-between gap-1 overflow-hidden rounded-lg border border-gray-100 bg-transparent text-xs shadow-none transition hover:border-gray-200 hover:shadow-[0_1px_1px_rgba(0,0,0,0.07)]";
+    "group relative mb-1 inline-flex w-full max-w-full items-center justify-between gap-1 rounded-lg border border-gray-100 bg-transparent text-xs shadow-none transition hover:border-gray-200 hover:shadow-[0_1px_1px_rgba(0,0,0,0.07)]";
   const shiftTileClass = isDense ? `${shiftBase} px-2 py-1` : `${shiftBase} px-2.5 py-1.5`;
 
   const handleDragStart = (e) => {
@@ -482,9 +482,11 @@ function ShiftChip(props) {
         }}
         onClick={handleTileClick}
       >
-          <div className="flex w-full max-w-full items-center gap-2 overflow-hidden">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="truncate font-medium">{timeRange(shift.starts_at, shift.ends_at)}</div>
+            <div className="font-medium whitespace-nowrap">
+              {timeRange(shift.starts_at, shift.ends_at)}
+            </div>
             <div className="flex min-w-0 items-center gap-1 text-[11px] text-gray-500">
               <span
                 className="h-2 w-2 rounded-full flex-shrink-0"

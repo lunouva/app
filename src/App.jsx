@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
 
 
 /**
- * ShiftMate â€“ safe build + updates per new spec
+ * ShiftMate - safe build + updates per new spec
  * - Prev/Next week controls (respect custom work-week start)
  * - Unavailability: override with warning (confirm). Employees can edit; Managers can toggle in Settings.
  * - Time off: pending/approved chips on Schedule; scheduling over time off shows warning (confirm).
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
  * - Requests: its own tab for Managers/Owners (time-off approvals). Positions moved under Settings.
  * - Messages: simple DMs.
  * - NEW: Work-week start day configurable in Settings (applies to week picker & grid) + prev/next week buttons.
- * - NEW: Add Employee fields â€“ phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
+ * - NEW: Add Employee fields - phone, birthday, pronouns (optional), emergency contact, attachments (metadata only in demo), notes.
  * - NEW: Manager quick inputs (under Schedule): add Time Off & Weekly Unavailability; full lists remain in Requests/Unavailability tabs.
  *
  * This file is a complete, runnable React single-file app for the canvas preview.
