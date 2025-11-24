@@ -114,8 +114,6 @@ export function WeekGrid(props) {
     return totals;
   }, [safeShifts, safeWeekDays]);
 
-  const cellPadding = isDense ? "p-2" : "p-3";
-
   return (
     <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
       <div className="relative">
@@ -151,7 +149,6 @@ export function WeekGrid(props) {
                 userNameById={userNameById}
                 rowIndex={idx}
                 weeklyHours={hoursByEmployee[emp.id] || 0}
-                cellPadding={cellPadding}
               />
             ))}
           </div>
@@ -222,7 +219,6 @@ function EmployeeRow(props) {
     userNameById,
     rowIndex,
     weeklyHours,
-    cellPadding,
   } = props;
 
   const rowTint = rowIndex % 2 === 1 ? "bg-gray-50/70" : "bg-white";
@@ -294,7 +290,6 @@ function EmployeeRow(props) {
             userNameById={userNameById}
             positionsById={positionsById}
             rowTint={rowTint}
-            cellPadding={cellPadding}
           />
         );
       })}
@@ -329,7 +324,6 @@ function ShiftCell(props) {
     userNameById,
     positionsById,
     rowTint,
-    cellPadding,
   } = props;
 
   const hasUnav = (unavailability || []).length > 0;
@@ -354,7 +348,7 @@ function ShiftCell(props) {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className={`flex h-full flex-col gap-1 ${cellPadding}`}>
+      <div className="flex h-full min-h-[64px] flex-col gap-1 px-2 py-2">
         {showTimeOffChips &&
           (timeOffList || []).map((r) => (
             <div
